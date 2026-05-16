@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import api from '../services/api';
-import { RefreshCw, Radio, Truck } from 'lucide-react';
+import { RefreshCw, Radio, Truck, MapPin } from 'lucide-react';
 
 export default function Monitoramento() {
   const [rotas, setRotas] = useState([]);
