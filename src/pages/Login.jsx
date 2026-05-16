@@ -18,7 +18,10 @@ export default function Login() {
       await login(email, password);
       navigate('/');
     } catch (err) {
-      setError(err.detail || 'Email ou senha incorretos');
+      const msg = err?.detail
+        ? (Array.isArray(err.detail) ? err.detail[0]?.msg || 'Erro' : String(err.detail))
+        : String(err?.message || 'Email ou senha incorretos');
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -33,7 +36,6 @@ export default function Login() {
       justifyContent: 'center',
     }}>
       <div style={{ width: 400 }}>
-        {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
             <div style={{ width: 48, height: 48, background: '#e8521a', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>
@@ -41,15 +43,14 @@ export default function Login() {
             </div>
             <div>
               <div style={{ fontSize: 28, fontWeight: 700, color: '#fff' }}>Gelocrim</div>
-              <div style={{ fontSize: 12, color: '#8a94a6' }}>Sistema de Roteirização — V1</div>
+              <div style={{ fontSize: 12, color: '#8a94a6' }}>Sistema de Roteirizacao</div>
             </div>
           </div>
         </div>
 
-        {/* Card */}
         <div style={{ background: '#0f2040', border: '1px solid #1e3a5c', borderRadius: 16, padding: 32 }}>
           <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Bem-vindo de volta</h2>
-          <p style={{ color: '#90afd4', fontSize: 13, marginBottom: 24 }}>Informe seu usuário e senha para acessar</p>
+          <p style={{ color: '#90afd4', fontSize: 13, marginBottom: 24 }}>Informe seu usuario e senha para acessar</p>
 
           <form onSubmit={handleSubmit}>
             <div className="form-group">
