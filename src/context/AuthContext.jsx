@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { login as apiLogin, getMe } from '../services/api';
+import api from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -10,8 +10,8 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const token = localStorage.getItem('fleet_token');
     if (token) {
-      getMe()
-        .then(setUser)
+      api.get('/auth/me')
+        .then(data => setUser(typeof data === 'object' ? data : { name: 'Admin' }))
         .catch(() => localStorage.removeItem('fleet_token'))
         .finally(() => setLoading(false));
     } else {
@@ -20,11 +20,21 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (email, password) => {
-    const data = await apiLogin(email, password);
-    localStorage.setItem('fleet_token', data.access_token);
-    const me = await getMe();
-    setUser(me);
-    return me;
+    const form = new URLSearchParams();
+    form.append('username', email);
+    form.append('password', password);
+    const data = await api.post('/auth/login', form, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+    const token = data.access_token || data.token;
+    if (!token) throw new Error('Token nao recebido');
+    localStorage.setItem('fleet_token', token);
+    try {
+      const me = await api.get('/auth/me');
+      setUser(typeof me === 'object' ? me : { name: 'Admin', email });
+    } catch {
+      setUser({ name: 'Admin', email });
+    }
   };
 
   const logout = () => {
