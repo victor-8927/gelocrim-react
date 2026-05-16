@@ -23,15 +23,8 @@ api.interceptors.response.use(
 
 export default api;
 
-// Auth - backend usa form-data para login
-export const login = (email, password) => {
-  const form = new URLSearchParams();
-  form.append('username', email);
-  form.append('password', password);
-  return api.post('/auth/login', form, {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-  });
-};
+// Auth - backend aceita JSON
+export const login = (email, password) => api.post('/auth/login', { email, password });
 export const getMe = () => api.get('/auth/me');
 
 // Dashboard
