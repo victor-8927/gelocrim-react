@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getOcorrencias } from '../services/api';
-import { RefreshCw, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { RefreshCw, AlertTriangle, Clock } from 'lucide-react';
 
 const TIPO_COLORS = {
   acidente: '#ef4444',

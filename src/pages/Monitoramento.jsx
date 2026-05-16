@@ -1,8 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import api from '../services/api';
-import { RefreshCw, Radio, MapPin, Clock, Truck, AlertTriangle } from 'lucide-react';
-
-const GMAPS_KEY = process.env.REACT_APP_GMAPS_KEY || 'AIzaSyB47DpEZW4qbU74LxcG1ZD76cYLRlJw88M';
+import { RefreshCw, Radio, Truck } from 'lucide-react';
 
 export default function Monitoramento() {
   const [rotas, setRotas] = useState([]);
@@ -27,7 +25,7 @@ export default function Monitoramento() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, []); // eslint-disable-line
 
   useEffect(() => {
     if (!mapRef.current || !window.google) return;

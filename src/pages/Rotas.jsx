@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getRotas, liberarRota, deleteRota } from '../services/api';
-import { RefreshCw, Plus, Truck, MapPin, CheckCircle, Trash2, Send } from 'lucide-react';
+import { RefreshCw, Truck, Trash2, Send } from 'lucide-react';
 
 const STATUS = {
   draft: { label: 'Rascunho', color: '#90afd4' },
@@ -24,7 +24,7 @@ export default function Rotas() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [data]);
+  useEffect(() => { load(); }, [data]); // eslint-disable-line
 
   const liberar = async (id) => {
     if (!window.confirm('Liberar esta rota para o motorista?')) return;
@@ -37,8 +37,6 @@ export default function Rotas() {
   };
 
   const totalKm = rotas.reduce((s, r) => s + (parseFloat(r.total_km) || 0), 0);
-  const totalParadas = rotas.reduce((s, r) => s + (parseInt(r.total_stops) || 0), 0);
-
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
