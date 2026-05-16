@@ -8,25 +8,25 @@ import {
 } from 'lucide-react';
 
 const navItems = [
-  { section: 'OPERAÇÃO', items: [
+  { section: 'OPERACAO', items: [
     { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/pedidos', icon: Package, label: 'Pedidos', badge: 'pendentes' },
-    { to: '/roteirizacao', icon: Zap, label: 'Roteirização' },
+    { to: '/pedidos', icon: Package, label: 'Pedidos' },
+    { to: '/roteirizacao', icon: Zap, label: 'Roteirizacao' },
     { to: '/rotas', icon: Map, label: 'Rotas' },
     { to: '/monitoramento', icon: Radio, label: 'Monitoramento' },
-    { to: '/ocorrencias', icon: AlertTriangle, label: 'Ocorrências' },
+    { to: '/ocorrencias', icon: AlertTriangle, label: 'Ocorrencias' },
   ]},
   { section: 'CADASTROS', items: [
-    { to: '/veiculos', icon: Truck, label: 'Veículos' },
+    { to: '/veiculos', icon: Truck, label: 'Veiculos' },
     { to: '/equipe', icon: Users, label: 'Equipe de Entrega' },
-    { to: '/producao', icon: Factory, label: 'Produção' },
+    { to: '/producao', icon: Factory, label: 'Producao' },
     { to: '/parceiros', icon: Handshake, label: 'Parceiros' },
   ]},
-  { section: 'INTEGRAÇÃO', items: [
+  { section: 'INTEGRACAO', items: [
     { to: '/integracao', icon: RefreshCw, label: 'Sankhya ERP' },
   ]},
-  { section: 'RELATÓRIOS', items: [
-    { to: '/relatorios', icon: BarChart2, label: 'Relatórios' },
+  { section: 'RELATORIOS', items: [
+    { to: '/relatorios', icon: BarChart2, label: 'Relatorios' },
   ]},
 ];
 
@@ -38,9 +38,14 @@ export default function Layout({ children }) {
 
   const handleLogout = () => { logout(); navigate('/login'); };
 
+  const userName = user
+    ? (typeof user.name === 'string' ? user.name : typeof user.email === 'string' ? user.email : 'Admin')
+    : 'Admin';
+
+  const userRole = user && typeof user.role === 'string' ? user.role : 'admin';
+
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-      {/* Sidebar */}
       <aside style={{
         width: collapsed ? 60 : 240,
         background: '#0a1f3d',
@@ -51,7 +56,6 @@ export default function Layout({ children }) {
         overflow: 'hidden',
         flexShrink: 0,
       }}>
-        {/* Logo */}
         <div style={{ padding: '16px', borderBottom: '1px solid #1e3a5c', display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 32, height: 32, background: '#e8521a', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             🚛
@@ -59,7 +63,6 @@ export default function Layout({ children }) {
           {!collapsed && <span style={{ fontWeight: 700, fontSize: 16, color: '#e8f0fe' }}>Gelocrim</span>}
         </div>
 
-        {/* Nav */}
         <nav style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
           {navItems.map(section => (
             <div key={section.section}>
@@ -97,7 +100,6 @@ export default function Layout({ children }) {
           ))}
         </nav>
 
-        {/* Collapse button */}
         <button
           onClick={() => setCollapsed(!collapsed)}
           style={{ padding: '12px 16px', background: 'none', border: 'none', color: '#90afd4', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-end', borderTop: '1px solid #1e3a5c' }}
@@ -106,9 +108,7 @@ export default function Layout({ children }) {
         </button>
       </aside>
 
-      {/* Main */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {/* Topbar */}
         <header style={{
           height: 56,
           background: '#0f2040',
@@ -120,12 +120,12 @@ export default function Layout({ children }) {
           flexShrink: 0,
         }}>
           <span style={{ fontSize: 13, color: '#90afd4' }}>
-            {now.toLocaleDateString('pt-BR')} · {now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            {now.toLocaleDateString('pt-BR')} - {now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>{user?.name || 'Admin'}</div>
-              <div style={{ fontSize: 11, color: '#90afd4' }}>{user?.role || 'admin'}</div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{userName}</div>
+              <div style={{ fontSize: 11, color: '#90afd4' }}>{userRole}</div>
             </div>
             <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: '#90afd4', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
               <LogOut size={16} />
@@ -133,7 +133,6 @@ export default function Layout({ children }) {
           </div>
         </header>
 
-        {/* Content */}
         <main style={{ flex: 1, overflow: 'auto', padding: 24 }}>
           {children}
         </main>
