@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { getPedidos } from '../services/api';
 import { RefreshCw, Search } from 'lucide-react';
 
@@ -9,19 +9,12 @@ const STATUS_LABELS = {
   failed: 'Falha',
 };
 
-const STATUS_COLORS = {
-  pending: '#f59e0b',
-  routed: '#64B4FF',
-  delivered: '#10b981',
-  failed: '#ef4444',
-};
-
 const TOP_LABELS = {
   '1000': 'Venda',
   '1007': 'Bonif.',
   '1008': 'Consig.',
   '1009': 'Troca',
-  '1010': 'PrÃ©-ped.',
+  '1010': 'Pre-ped.',
 };
 
 export default function Pedidos() {
@@ -49,15 +42,13 @@ export default function Pedidos() {
     return matchBusca && matchStatus;
   });
 
-  const pendentes = pedidos.filter(p => p.status === 'pending').length;
   const pesoTotal = filtrados.reduce((s, p) => s + (parseFloat(p.weight_kg) || 0), 0);
 
   return (
     <div>
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700 }}>GestÃ£o de Pedidos</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 700 }}>Gestao de Pedidos</h1>
           <p style={{ color: '#90afd4', fontSize: 13, marginTop: 4 }}>{pedidos.length} pedidos carregados</p>
         </div>
         <button className="btn btn-secondary" onClick={load}>
@@ -65,7 +56,6 @@ export default function Pedidos() {
         </button>
       </div>
 
-      {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
         {[
           { label: 'Pendentes', value: pedidos.filter(p => p.status === 'pending').length, color: '#f59e0b' },
@@ -80,14 +70,13 @@ export default function Pedidos() {
         ))}
       </div>
 
-      {/* Filtros */}
       <div className="card" style={{ marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
         <div style={{ position: 'relative', flex: 1 }}>
           <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#90afd4' }} />
           <input
             className="form-control"
             style={{ paddingLeft: 32 }}
-            placeholder="Buscar por nome, pedido, endereÃ§o..."
+            placeholder="Buscar por nome, pedido, endereco..."
             value={busca}
             onChange={e => setBusca(e.target.value)}
           />
@@ -100,11 +89,10 @@ export default function Pedidos() {
           <option value="failed">Falhas</option>
         </select>
         <span style={{ color: '#90afd4', fontSize: 12, whiteSpace: 'nowrap' }}>
-          {filtrados.length} pedidos Â· {pesoTotal.toFixed(0)} kg
+          {filtrados.length} pedidos - {pesoTotal.toFixed(0)} kg
         </span>
       </div>
 
-      {/* Tabela */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
           <table>
@@ -112,7 +100,7 @@ export default function Pedidos() {
               <tr>
                 <th>Pedido</th>
                 <th>Cliente</th>
-                <th>EndereÃ§o</th>
+                <th>Endereco</th>
                 <th>Peso</th>
                 <th>Valor</th>
                 <th>TOP</th>
@@ -129,13 +117,13 @@ export default function Pedidos() {
               ) : filtrados.map(p => (
                 <tr key={p.id}>
                   <td style={{ fontFamily: 'monospace', color: '#64B4FF', fontSize: 12 }}>{p.external_id || p.id?.slice(0, 8)}</td>
-                  <td style={{ fontWeight: 600 }}>{p.recipient_name || 'â€”'}</td>
-                  <td style={{ color: '#90afd4', fontSize: 12 }}>{p.address || 'â€”'}</td>
+                  <td style={{ fontWeight: 600 }}>{p.recipient_name || '-'}</td>
+                  <td style={{ color: '#90afd4', fontSize: 12 }}>{p.address || '-'}</td>
                   <td>{p.weight_kg || 0} kg</td>
-                  <td>{p.total_value ? `R$ ${parseFloat(p.total_value).toFixed(2)}` : 'â€”'}</td>
-                  <td><span style={{ fontSize: 11, color: '#64B4FF' }}>{TOP_LABELS[p.order_type] || p.order_type || 'â€”'}</span></td>
-                  <td>{p.service_time ? `${p.service_time} min` : 'â€”'}</td>
-                  <td style={{ color: p.lat && p.lng ? '#10b981' : '#ef4444' }}>{p.lat && p.lng ? 'OK' : 'â€”'}</td>
+                  <td>{p.total_value ? `R$ ${parseFloat(p.total_value).toFixed(2)}` : '-'}</td>
+                  <td><span style={{ fontSize: 11, color: '#64B4FF' }}>{TOP_LABELS[p.order_type] || p.order_type || '-'}</span></td>
+                  <td>{p.service_time ? `${p.service_time} min` : '-'}</td>
+                  <td style={{ color: p.lat && p.lng ? '#10b981' : '#ef4444' }}>{p.lat && p.lng ? 'OK' : '-'}</td>
                   <td>
                     <span className={`badge ${p.status}`}>
                       {STATUS_LABELS[p.status] || p.status}
@@ -150,4 +138,3 @@ export default function Pedidos() {
     </div>
   );
 }
-
