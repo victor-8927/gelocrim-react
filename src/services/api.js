@@ -23,8 +23,15 @@ api.interceptors.response.use(
 
 export default api;
 
-// Auth
-export const login = (email, password) => api.post('/auth/login', { email, password });
+// Auth - backend usa form-data para login
+export const login = (email, password) => {
+  const form = new URLSearchParams();
+  form.append('username', email);
+  form.append('password', password);
+  return api.post('/auth/login', form, {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+  });
+};
 export const getMe = () => api.get('/auth/me');
 
 // Dashboard
@@ -37,7 +44,7 @@ export const deletePedidos = () => api.delete('/orders');
 // Clientes
 export const getClientes = () => api.get('/clientes');
 
-// Veículos
+// Veiculos
 export const getVeiculos = () => api.get('/vehicles');
 export const createVeiculo = (data) => api.post('/vehicles', data);
 export const updateVeiculo = (id, data) => api.patch(`/vehicles/${id}`, data);
@@ -57,9 +64,9 @@ export const deleteRota = (id) => api.delete(`/routes/${id}`);
 export const getStops = (id) => api.get(`/routes/${id}/stops`);
 export const otimizarRota = (data) => api.post('/routes/otimizar', data);
 
-// Produção
+// Producao
 export const getPallets = () => api.get('/producao/pallets');
 export const getItens = () => api.get('/producao/itens');
 
-// Ocorrências
+// Ocorrencias
 export const getOcorrencias = () => api.get('/ocorrencias');
