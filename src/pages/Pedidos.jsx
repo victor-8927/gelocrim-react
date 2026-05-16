@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { getPedidos } from '../services/api';
 import { RefreshCw, Search } from 'lucide-react';
 
@@ -21,7 +21,7 @@ const TOP_LABELS = {
   '1007': 'Bonif.',
   '1008': 'Consig.',
   '1009': 'Troca',
-  '1010': 'Pré-ped.',
+  '1010': 'PrÃ©-ped.',
 };
 
 export default function Pedidos() {
@@ -57,7 +57,7 @@ export default function Pedidos() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700 }}>Gestão de Pedidos</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 700 }}>GestÃ£o de Pedidos</h1>
           <p style={{ color: '#90afd4', fontSize: 13, marginTop: 4 }}>{pedidos.length} pedidos carregados</p>
         </div>
         <button className="btn btn-secondary" onClick={load}>
@@ -87,7 +87,7 @@ export default function Pedidos() {
           <input
             className="form-control"
             style={{ paddingLeft: 32 }}
-            placeholder="Buscar por nome, pedido, endereço..."
+            placeholder="Buscar por nome, pedido, endereÃ§o..."
             value={busca}
             onChange={e => setBusca(e.target.value)}
           />
@@ -100,7 +100,7 @@ export default function Pedidos() {
           <option value="failed">Falhas</option>
         </select>
         <span style={{ color: '#90afd4', fontSize: 12, whiteSpace: 'nowrap' }}>
-          {filtrados.length} pedidos · {pesoTotal.toFixed(0)} kg
+          {filtrados.length} pedidos Â· {pesoTotal.toFixed(0)} kg
         </span>
       </div>
 
@@ -112,7 +112,7 @@ export default function Pedidos() {
               <tr>
                 <th>Pedido</th>
                 <th>Cliente</th>
-                <th>Endereço</th>
+                <th>EndereÃ§o</th>
                 <th>Peso</th>
                 <th>Valor</th>
                 <th>TOP</th>
@@ -129,13 +129,13 @@ export default function Pedidos() {
               ) : filtrados.map(p => (
                 <tr key={p.id}>
                   <td style={{ fontFamily: 'monospace', color: '#64B4FF', fontSize: 12 }}>{p.external_id || p.id?.slice(0, 8)}</td>
-                  <td style={{ fontWeight: 600 }}>{p.recipient_name || '—'}</td>
-                  <td style={{ color: '#90afd4', fontSize: 12 }}>{p.address || '—'}</td>
+                  <td style={{ fontWeight: 600 }}>{p.recipient_name || 'â€”'}</td>
+                  <td style={{ color: '#90afd4', fontSize: 12 }}>{p.address || 'â€”'}</td>
                   <td>{p.weight_kg || 0} kg</td>
-                  <td>{p.total_value ? `R$ ${parseFloat(p.total_value).toFixed(2)}` : '—'}</td>
-                  <td><span style={{ fontSize: 11, color: '#64B4FF' }}>{TOP_LABELS[p.order_type] || p.order_type || '—'}</span></td>
-                  <td>{p.service_time ? `${p.service_time} min` : '—'}</td>
-                  <td style={{ color: p.lat && p.lng ? '#10b981' : '#ef4444' }}>{p.lat && p.lng ? 'OK' : '—'}</td>
+                  <td>{p.total_value ? `R$ ${parseFloat(p.total_value).toFixed(2)}` : 'â€”'}</td>
+                  <td><span style={{ fontSize: 11, color: '#64B4FF' }}>{TOP_LABELS[p.order_type] || p.order_type || 'â€”'}</span></td>
+                  <td>{p.service_time ? `${p.service_time} min` : 'â€”'}</td>
+                  <td style={{ color: p.lat && p.lng ? '#10b981' : '#ef4444' }}>{p.lat && p.lng ? 'OK' : 'â€”'}</td>
                   <td>
                     <span className={`badge ${p.status}`}>
                       {STATUS_LABELS[p.status] || p.status}
@@ -150,3 +150,4 @@ export default function Pedidos() {
     </div>
   );
 }
+
