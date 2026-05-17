@@ -14,6 +14,7 @@ import Veiculos from './pages/Veiculos';
 import Parceiros from './pages/Parceiros';
 import Producao from './pages/Producao';
 import Relatorios from './pages/Relatorios';
+import Sankhya from './pages/Sankhya';
 
 const Placeholder = ({ title }) => (
   <div>
@@ -47,7 +48,7 @@ function AppRoutes() {
       <Route path="/equipe" element={<PrivateRoute><Equipe /></PrivateRoute>} />
       <Route path="/producao" element={<PrivateRoute><Producao /></PrivateRoute>} />
       <Route path="/parceiros" element={<PrivateRoute><Parceiros /></PrivateRoute>} />
-      <Route path="/integracao" element={<PrivateRoute><Placeholder title="Integracao Sankhya" /></PrivateRoute>} />
+      <Route path="/integracao" element={<PrivateRoute><Sankhya /></PrivateRoute>} />
       <Route path="/relatorios" element={<PrivateRoute><Relatorios /></PrivateRoute>} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
