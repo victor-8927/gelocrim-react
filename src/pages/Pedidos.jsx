@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { getOrders } from '../services/supabase';
+import { getOrders, supabase } from '../services/supabase';
+import * as XLSX from 'xlsx';
 import { RefreshCw, Search, X } from 'lucide-react';
 
 const STATUS_LABELS = {
@@ -455,8 +456,7 @@ export default function Pedidos() {
     } catch (e) {
       setImportLog(prev => [...prev, `❌ Erro: ${e.message}`]);
     } finally { setImportando(false); }
-  };rom '../services/supabase';
-import { RefreshCw, Search, X } from 'lucide-react';
+  };
 
 const STATUS_LABELS = {
   pending: 'Pendente', routed: 'Roteirizado', delivered: 'Entregue', failed: 'Falha',
