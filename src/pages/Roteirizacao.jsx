@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import api from '../services/api';
-import { RefreshCw, Zap, Trash2, ChevronRight } from 'lucide-react';
+import { RefreshCw, Zap, ChevronRight } from 'lucide-react';
 import ConferenciaMaster from './ConferenciaMaster';
 
 const DEPOSITO = { lat: -3.093544, lng: -60.075812 };
