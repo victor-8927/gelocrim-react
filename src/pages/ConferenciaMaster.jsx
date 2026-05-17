@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import api from '../services/api';
 import { createRoute, supabase } from '../services/supabase';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 
@@ -92,7 +91,7 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
   const mapObj = useRef(null);
   const markersRef = useRef([]);
   const polyRef = useRef(null);
-  const dirRendererRef = useRef(null);
+  const dirRendererRef = useRef(null); // eslint-disable-line
 
   // Inicializa ordem com ETAs
   useEffect(() => {
