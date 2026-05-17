@@ -15,7 +15,7 @@ export default function Roteirizacao() {
   const [selecionados, setSelecionados] = useState({});
   const [veiculos, setVeiculos] = useState([]);
   const [veiculo, setVeiculo] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [confAberta, setConfAberta] = useState(false);
   const [veiculoSel, setVeiculoSel] = useState(null);
   const [motoristaSel, setMotoristaSel] = useState(null);

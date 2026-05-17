@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../services/api';
-import { X, RefreshCw, RotateCcw, Map, CheckCircle, Save, ChevronUp, ChevronDown, Printer } from 'lucide-react';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 
 const DEPOSITO = { lat: -3.093544, lng: -60.075812 };
 const VEL_MEDIA = 35;
@@ -122,7 +122,6 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
   const volTotal = ordem.reduce((s, o) => s + (parseFloat(o.volume_m3) || pesoTotal * 0.002), 0);
   const fatTotal = ordem.reduce((s, o) => s + (parseFloat(o.total_value) || 0), 0);
   const capKg = parseFloat(veiculo?.capacity_kg || 5000);
-  const capM3 = parseFloat(veiculo?.capacity_m3 || 20);
   const pctCap = Math.round(pesoTotal / capKg * 100);
   const corPeso = pctCap <= 100 ? '#00FF88' : pctCap <= 120 ? '#FFD700' : '#FF3355';
   const distTotal = ordem.reduce((s, o) => s + parseFloat(o._distKm || 0), 0);
