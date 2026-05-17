@@ -213,14 +213,21 @@ export default function Pedidos() {
         };
       }).filter(p => p.external_id);
       setImportLog(prev => [...prev, `${pedidos.length} pedidos válidos`]);
+      const lotes = [];
+      for (let i = 0; i < pedidos.length; i += 50) lotes.push(pedidos.slice(i, i + 50));
       let inseridos = 0;
-      for (let i = 0; i < pedidos.length; i += 50) {
-        const lote = pedidos.slice(i, i + 50);
+      for (const lote of lotes) {
         const { error } = await supabase.from('orders').upsert(lote, { onConflict: 'external_id' });
-        if (error) setImportLog(prev => [...prev, `⚠️ ${error.message}`]);
-        else { inseridos += lote.length; setImportLog(prev => [...prev, `✅ ${inseridos}/${pedidos.length}`]); }
+        if (error) { setImportLog(prev => [...prev, `⚠️ ${error.message}`]); }
+        else {
+          inseridos += lote.length;
+          const total = pedidos.length;
+          const n = inseridos;
+          setImportLog(prev => [...prev, `✅ ${n}/${total}`]);
+        }
       }
-      setImportLog(prev => [...prev, `🎉 ${inseridos} pedidos importados!`]);
+      const finalN = inseridos;
+      setImportLog(prev => [...prev, `🎉 ${finalN} pedidos importados!`]);
     } catch (e) {
       setImportLog(prev => [...prev, `❌ ${e.message}`]);
     } finally { setImportando(false); }
