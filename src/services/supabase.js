@@ -287,3 +287,41 @@ export const getDashboardData = async (date) => {
     drivers: drivers.data || [],
   };
 };
+
+// ─── VIEWS DASHBOARD ─────────────────────────────────────────────────────────
+export const getOrdersSummary = async () => {
+  const { data, error } = await supabase.from('v_orders_summary').select('*').single();
+  if (error) throw error;
+  return data;
+};
+
+export const getRoutesToday = async () => {
+  const { data, error } = await supabase.from('v_routes_today').select('*');
+  if (error) throw error;
+  return data || [];
+};
+
+export const getFleetSummary = async () => {
+  const { data, error } = await supabase.from('v_fleet_summary').select('*').single();
+  if (error) throw error;
+  return data;
+};
+
+export const getDriversSummary = async () => {
+  const { data, error } = await supabase.from('v_drivers_summary').select('*').single();
+  if (error) throw error;
+  return data;
+};
+
+// ─── VIEWS RELATÓRIOS ────────────────────────────────────────────────────────
+export const getReportPeriod = async () => {
+  const { data, error } = await supabase.from('v_report_period').select('*');
+  if (error) throw error;
+  return data || [];
+};
+
+export const getReportByRegion = async () => {
+  const { data, error } = await supabase.from('v_report_by_region').select('*');
+  if (error) throw error;
+  return data || [];
+};
