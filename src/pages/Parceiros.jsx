@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getClients, updateClient, getComodatosByClient } from '../services/supabase';
+import { getClients, getComodatosByClient } from '../services/supabase';
 import { RefreshCw, Search, X, MapPin } from 'lucide-react';
 
 function ModalParceiro({ parceiro, onFechar }) {
