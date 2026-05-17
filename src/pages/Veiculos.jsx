@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import api from '../services/api';
+import { getVehicles, upsertVehicle, deleteVehicle, getProductionItems } from '../services/supabase';
 import { RefreshCw, Plus, X } from 'lucide-react';
 
 const TIPOS = [
@@ -36,8 +36,8 @@ export default function Veiculos() {
     setLoading(true);
     try {
       const [v, i] = await Promise.all([
-        api.get('/vehicles'),
-        api.get('/producao/itens').catch(() => [])
+        getVehicles(),
+        getProductionItems().catch(() => [])
       ]);
       setVeiculos(Array.isArray(v) ? v : []);
       setItensGelo(Array.isArray(i) ? i : []);
@@ -52,15 +52,18 @@ export default function Veiculos() {
   const abrirEditar = (v) => {
     setEditId(v.id);
     setForm({
-      name: v.name || '', plate: v.plate || '', model: v.model || '',
+      name: v.vda || v.name || '', plate: v.plate || '', model: v.model || '',
       type: v.type || 'caminhao_toco', brand: v.brand || '', year: v.year || '',
-      capacity_kg: v.capacity_kg || '', capacity_m3: v.capacity_m3 || '',
-      cap_pallets: v.cap_pallets || v.pallets || '',
+      capacity_kg: v.capacity_kg || '', capacity_m3: v.capacity_m3 || v.volume_m3 || '',
+      cap_pallets: v.pallets || v.cap_pallets || '',
       box_length: v.box_length || '', box_width: v.box_width || '', box_height: v.box_height || '',
-      fuel_type: v.fuel_type || 'diesel', fuel_consumption: v.fuel_consumption || '',
+      fuel_type: v.fuel_type || 'diesel', fuel_consumption: v.km_per_liter || v.fuel_consumption || '',
       fuel_price: v.fuel_price || '',
-      ipva_anual: v.ipva_anual || '', manut_mes: v.manut_mes || '',
-      oil_last: v.oil_last || '', oil_next: v.oil_next || '', oil_cost: v.oil_cost || '',
+      ipva_anual: v.annual_tax || v.ipva_anual || '',
+      manut_mes: v.monthly_maintenance || v.manut_mes || '',
+      oil_last: v.last_oil_date || v.oil_last || '',
+      oil_next: v.next_oil_date || v.oil_next || '',
+      oil_cost: v.oil_cost || '',
       status: v.status || 'active', notes: v.notes || ''
     });
     setModal(true);
@@ -75,8 +78,16 @@ export default function Veiculos() {
       payload.capacity_m3 = (parseFloat(form.box_length) * parseFloat(form.box_width) * parseFloat(form.box_height)).toFixed(3);
     }
     try {
-      if (editId) await api.patch(`/vehicles/${editId}`, payload).catch(() => api.put(`/vehicles/${editId}`, payload));
-      else await api.post('/vehicles', payload);
+      payload.id = editId || `veh-${Date.now()}`;
+      // Mapear campos para o banco
+      payload.vda = payload.name;
+      payload.volume_m3 = payload.capacity_m3;
+      payload.km_per_liter = payload.fuel_consumption;
+      payload.annual_tax = payload.ipva_anual;
+      payload.monthly_maintenance = payload.manut_mes;
+      payload.last_oil_date = payload.oil_last;
+      payload.next_oil_date = payload.oil_next;
+      await upsertVehicle(payload);
       setModal(false);
       load();
     } catch (e) { alert('Erro: ' + (e.detail || e.message)); }
@@ -85,7 +96,7 @@ export default function Veiculos() {
 
   const excluir = async (id) => {
     if (!window.confirm('Excluir este veículo?')) return;
-    try { await api.delete(`/vehicles/${id}`); load(); }
+    try { await deleteVehicle(id); load(); }
     catch (e) { alert('Erro: ' + (e.detail || e.message)); }
   };
 
@@ -169,7 +180,7 @@ export default function Veiculos() {
                 <tr><td colSpan={11} style={{ textAlign: 'center', color: '#90afd4', padding: 30 }}>Nenhum veículo</td></tr>
               ) : veiculos.map(v => (
                 <tr key={v.id}>
-                  <td style={{ fontWeight: 700, color: '#e8521a' }}>{v.name}</td>
+                  <td style={{ fontWeight: 700, color: '#e8521a' }}>{v.vda || v.name}</td>
                   <td style={{ fontFamily: 'monospace', fontSize: 12, color: '#64B4FF' }}>{v.plate}</td>
                   <td style={{ fontSize: 12 }}>{v.model || '—'}</td>
                   <td style={{ fontSize: 11, color: '#90afd4' }}>{TIPOS.find(t => t.val === v.type)?.label || v.type || '—'}</td>

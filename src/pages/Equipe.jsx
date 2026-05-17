@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import api from '../services/api';
+import { getDrivers, upsertDriver, deleteDriver } from '../services/supabase';
 import { RefreshCw, Plus, X } from 'lucide-react';
 
 const DIAS = [{ val: '', label: '— Sem folga fixa —' }, { val: 'domingo', label: 'Domingo' }, { val: 'segunda', label: 'Segunda-feira' }, { val: 'terca', label: 'Terca-feira' }, { val: 'quarta', label: 'Quarta-feira' }, { val: 'quinta', label: 'Quinta-feira' }, { val: 'sexta', label: 'Sexta-feira' }, { val: 'sabado', label: 'Sabado' }];
@@ -24,7 +24,7 @@ export default function Equipe() {
   const load = async () => {
     setLoading(true);
     try {
-      const d = await api.get('/drivers');
+      const d = await getDrivers();
       setDrivers(Array.isArray(d) ? d : []);
     } catch { setDrivers([]); }
     finally { setLoading(false); }
@@ -66,8 +66,26 @@ export default function Equipe() {
     if (!form.daily_cost) return alert('Custo diário obrigatório');
     setSalvando(true);
     try {
-      if (editId) await api.patch(`/drivers/${editId}`, form).catch(() => api.put(`/drivers/${editId}`, form));
-      else await api.post('/drivers', form);
+      const payload = {
+        id: editId || `drv-${Date.now()}`,
+        type: form.type,
+        name: form.name,
+        cpf: form.cpf,
+        phone: form.phone,
+        hire_date: form.admission_date,
+        license_number: form.license_number,
+        license_category: form.license_category,
+        fixed_vehicle: form.fixed_vehicle,
+        daily_cost: parseFloat(form.daily_cost) || 0,
+        work_hours: form.work_hours,
+        lunch_time: form.lunch_break,
+        day_off: form.day_off,
+        notes: form.notes,
+        status: form.status,
+        photo: form.foto_funcionario,
+        license_photo: form.foto_cnh,
+      };
+      await upsertDriver(payload);
       setModal(false);
       load();
     } catch (e) { alert('Erro: ' + (e.detail || e.message)); }
@@ -77,7 +95,7 @@ export default function Equipe() {
   const excluir = async (id) => {
     if (!window.confirm('Excluir este cadastro?')) return;
     try {
-      await api.delete(`/drivers/${id}`);
+      await deleteDriver(id);
       load();
     } catch (e) { alert('Erro ao excluir: ' + (e.detail || e.message)); }
   };

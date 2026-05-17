@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getPedidos } from '../services/api';
-import api from '../services/api';
+import { getOrders } from '../services/supabase';
 import { RefreshCw, Search, X } from 'lucide-react';
 
 const STATUS_LABELS = {
@@ -17,7 +16,6 @@ const TOP_CORES = {
 
 function ModalPedido({ pedido, onFechar, onRoteirizar }) {
   if (!pedido) return null;
-  const itens = pedido.items || pedido.order_items || [];
   const topLabel = TOP_LABELS[pedido.order_type] || pedido.order_type || 'Venda';
   const topCor = TOP_CORES[pedido.order_type] || '#64B4FF';
 
@@ -81,10 +79,10 @@ function ModalPedido({ pedido, onFechar, onRoteirizar }) {
                 <span style={{ fontSize: 12, color: '#90afd4' }}>TOP {pedido.order_type || '1000'} — {topLabel}</span>
                 <span style={{ fontSize: 12, fontWeight: 700, color: topCor }}>{parseFloat(pedido.weight_kg || 0).toFixed(0)} kg</span>
               </div>
-              {itens.length > 0 ? itens.map((item, i) => (
+              {(pedido.order_items || []).length > 0 ? (pedido.order_items || []).map((item, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid rgba(30,58,92,.3)' }}>
                   <span style={{ fontSize: 12, color: '#e8f0fe' }}>{item.quantity || item.qty || 0}x {item.product_name || item.name || '—'}</span>
-                  <span style={{ fontSize: 12, color: '#f59e0b' }}>{parseFloat(item.weight_kg || 0).toFixed(0)} kg</span>
+                  <span style={{ fontSize: 12, color: '#f59e0b' }}>{(parseFloat(item.weight_unit || 0) * parseFloat(item.qty || 1)).toFixed(0)} kg</span>
                 </div>
               )) : (
                 <div style={{ fontSize: 12, color: '#90afd4', padding: '6px 0' }}>Sem itens detalhados</div>
@@ -105,7 +103,6 @@ function ModalPedido({ pedido, onFechar, onRoteirizar }) {
 
 export default function Pedidos() {
   const [pedidos, setPedidos] = useState([]);
-  const [veiculos, setVeiculos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState('');
   const [status, setStatus] = useState('');
@@ -117,14 +114,8 @@ export default function Pedidos() {
 
   const load = () => {
     setLoading(true);
-    Promise.all([
-      getPedidos({ limit: 500 }),
-      api.get('/vehicles').catch(() => [])
-    ])
-      .then(([data, veics]) => {
-        setPedidos(Array.isArray(data) ? data : data.value || []);
-        setVeiculos(Array.isArray(veics) ? veics : []);
-      })
+    getOrders({ limit: 500 })
+      .then(data => setPedidos(Array.isArray(data) ? data : []))
       .catch(console.error)
       .finally(() => setLoading(false));
   };
@@ -155,17 +146,17 @@ export default function Pedidos() {
   }).slice(0, limite);
 
   const pesoTotal = filtrados.reduce((s, p) => s + (parseFloat(p.weight_kg) || 0), 0);
-  const capFrota = veiculos.reduce((s, v) => s + (parseFloat(v.capacity_kg) || 0), 0);
+  const capFrota = 0;
   const ocupacao = capFrota > 0 ? Math.round(pesoTotal / capFrota * 100) : 0;
 
   // Resumo do dia por produto
   const resumoProd = {};
   pedidos.forEach(p => {
-    (p.items || p.order_items || []).forEach(item => {
-      const nome = item.product_name || item.name || 'Produto';
+    (p.order_items || p.items || []).forEach(item => {
+      const nome = item.item_name || item.product_name || item.name || 'Produto';
       if (!resumoProd[nome]) resumoProd[nome] = { qty: 0, peso: 0 };
-      resumoProd[nome].qty += parseInt(item.quantity || item.qty || 0);
-      resumoProd[nome].peso += parseFloat(item.weight_kg || 0);
+      resumoProd[nome].qty += parseInt(item.qty || item.quantity || 0);
+      resumoProd[nome].peso += parseFloat(item.weight_unit || item.weight_kg || 0) * parseInt(item.qty || item.quantity || 1);
     });
   });
   const resumoArr = Object.entries(resumoProd);
