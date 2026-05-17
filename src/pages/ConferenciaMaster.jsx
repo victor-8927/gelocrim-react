@@ -309,15 +309,15 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
                 });
                 ordem.forEach(o => { if (!o.codparc) novaOrdem.push(o); });
                 setOrdem(calcEtas(novaOrdem, horaInicio));
-        }
-      } else {
-        // Fallback local - nearest neighbor
+              }
+            }).catch(() => {});
+          }
+          setReprocessando(false);
+        });
+      } catch (e) {
         setOrdem(calcEtas(ordem, horaInicio));
-      }
-    } catch (e) {
-      setOrdem(calcEtas(ordem, horaInicio));
-    } finally {
-      setReprocessando(false);
+      } finally {
+        setReprocessando(false);
       setConfirmado(false);
     }
   };
