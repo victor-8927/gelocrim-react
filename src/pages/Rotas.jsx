@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import api from '../services/api';
+import { getRoutes } from '../services/supabase';
 import { RefreshCw, X, Eye } from 'lucide-react';
 
 function ModalRota({ rota, onFechar }) {
@@ -123,7 +123,7 @@ export default function Rotas() {
   const load = async () => {
     setLoading(true);
     try {
-      const r = await api.get(`/routes?date=${data}`);
+      const r = await getRoutes({ date: data });
       setRotas(Array.isArray(r) ? r : []);
     } catch { setRotas([]); }
     finally { setLoading(false); }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import api from '../services/api';
+import { getRoutes } from '../services/supabase';
 import { RefreshCw } from 'lucide-react';
 
 export default function Monitoramento() {
@@ -20,12 +20,12 @@ export default function Monitoramento() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [r, g] = await Promise.all([
-        api.get(`/routes?date=${today}`),
-        api.get('/routes/gps/todos').catch(() => [])
+      const [r, gpsData] = await Promise.all([
+        getRoutes({ date: today }),
+        Promise.resolve([]) // GPS em tempo real via app motorista futuramente
       ]);
       setRotas(Array.isArray(r) ? r : []);
-      setGps(Array.isArray(g) ? g : []);
+      setGps(Array.isArray(gpsData) ? gpsData : []);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, [today]);
