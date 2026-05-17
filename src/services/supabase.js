@@ -176,13 +176,8 @@ export const upsertProductionItem = async (item) => {
 
 // ─── COMODATOS ────────────────────────────────────────────────────────────────
 export const getComodatosByClient = async (codparc) => {
-  const { data, error } = await supabase.rpc('get_comodatos_by_codparc', { p_codparc: String(codparc) }).catch(async () => {
-    // fallback: busca todos e filtra
-    const res = await supabase.from('comodatos').select('*');
-    if (res.error) return { data: [], error: res.error };
-    return { data: (res.data || []).filter(c => String(c["CÓDIGO PARCEIRO"]) === String(codparc)), error: null };
-  });
-  if (error) throw error;
+  const { data, error } = await supabase.rpc('get_comodatos_by_codparc', { p_codparc: String(codparc) });
+  if (error) { console.error('comodato rpc error:', error); return []; }
   return data || [];
 };
 
