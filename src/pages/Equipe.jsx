@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
-import { RefreshCw, Plus, X, Trash2 } from 'lucide-react';
+import { RefreshCw, Plus, X } from 'lucide-react';
 
 const DIAS = ['', 'Domingo', 'Segunda', 'Terca', 'Quarta', 'Quinta', 'Sexta', 'Sabado'];
 
