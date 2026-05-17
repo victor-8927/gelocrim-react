@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import api from '../services/api';
+import { getPallets, upsertPallet, getProductionItems, upsertProductionItem } from '../services/supabase';
 import { RefreshCw, Plus, X, Edit } from 'lucide-react';
 
 export default function Producao() {
@@ -20,8 +20,8 @@ export default function Producao() {
     setLoading(true);
     try {
       const [p, i] = await Promise.all([
-        api.get('/producao/pallets').catch(() => []),
-        api.get('/producao/itens').catch(() => [])
+        getPallets(),
+        getProductionItems()
       ]);
       setPallets(Array.isArray(p) ? p : []);
       setItens(Array.isArray(i) ? i : []);
@@ -66,11 +66,11 @@ export default function Producao() {
       payload.cubagem = (parseFloat(payload.length) * parseFloat(payload.width) * parseFloat(payload.height)).toFixed(4);
     }
     try {
-      if (editPallet) await api.patch(`/producao/pallets/${editPallet.id}`, payload).catch(() => api.put(`/producao/pallets/${editPallet.id}`, payload));
-      else await api.post('/producao/pallets', payload);
+      if (editPallet) payload.id = editPallet.id;
+      await upsertPallet(payload);
       setModalPallet(false);
       load();
-    } catch (e) { alert('Erro: ' + (e.detail || e.message || 'Verifique o backend')); }
+    } catch (e) { alert('Erro: ' + (e.detail || e.message)); }
   };
 
   const salvarItem = async () => {
@@ -80,11 +80,13 @@ export default function Producao() {
       payload.cubagem = (parseFloat(payload.length) * parseFloat(payload.width) * parseFloat(payload.height)).toFixed(4);
     }
     try {
-      if (editItem) await api.patch(`/producao/itens/${editItem.id}`, payload).catch(() => api.put(`/producao/itens/${editItem.id}`, payload));
-      else await api.post('/producao/itens', payload);
+      if (editItem) payload.id = editItem.id;
+      // Mapear campos para o banco
+      payload.weight = parseFloat(payload.weight_kg || payload.weight || 0);
+      await upsertProductionItem(payload);
       setModalItem(false);
       load();
-    } catch (e) { alert('Erro: ' + (e.detail || e.message || 'Verifique o backend')); }
+    } catch (e) { alert('Erro: ' + (e.detail || e.message)); }
   };
 
   // Calculos pallet carregado
@@ -101,7 +103,7 @@ export default function Producao() {
 
   const unidades = calcUnidades();
   const pesoPallet = parseFloat(palletObj?.max_weight || palletObj?.capacity_kg || 0);
-  const pesoItem = parseFloat(itemObj?.weight_kg || itemObj?.peso_kg || 0);
+  const pesoItem = parseFloat(itemObj?.weight || itemObj?.weight_kg || itemObj?.peso_kg || 0);
   const pesoTotal = pesoPallet + (unidades * pesoItem);
   const volPallet = parseFloat(palletObj?.cubagem || 0);
   const volItem = parseFloat(itemObj?.cubagem || 0);

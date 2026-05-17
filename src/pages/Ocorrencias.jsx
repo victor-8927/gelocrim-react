@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import api from '../services/api';
+import { getIncidents, createIncident, updateIncident } from '../services/supabase';
 import { RefreshCw, Plus, X } from 'lucide-react';
 
 const TIPOS = [
@@ -42,8 +42,8 @@ export default function Ocorrencias() {
     setLoading(true);
     try {
       const [o, v] = await Promise.all([
-        api.get('/ocorrencias').catch(() => []),
-        api.get('/vehicles').catch(() => [])
+        getIncidents(),
+        import('../services/supabase').then(m => m.getVehicles()).catch(() => [])
       ]);
       setOcorrencias(Array.isArray(o) ? o : []);
       setVeiculos(Array.isArray(v) ? v : []);
@@ -57,7 +57,17 @@ export default function Ocorrencias() {
     if (!form.descricao) return alert('Descrição obrigatória');
     setSalvando(true);
     try {
-      await api.post('/ocorrencias', { ...form, data: new Date().toISOString() });
+      await createIncident({
+        type: form.tipo,
+        severity: form.gravidade,
+        vehicle: form.vehicle_id,
+        client: form.cliente,
+        invoice: form.pedido,
+        description: form.descricao,
+        photo: form.foto,
+        status: form.status || 'Pendente',
+        created_at: new Date().toISOString(),
+      });
       setModal(false);
       setForm(FORM_VAZIO);
       load();
@@ -75,11 +85,11 @@ export default function Ocorrencias() {
     return true;
   });
 
-  const pendentes = ocorrencias.filter(o => o.status === 'Pendente').length;
-  const emTrat = ocorrencias.filter(o => o.status === 'Em Tratamento').length;
-  const criticas = ocorrencias.filter(o => o.gravidade === 'critica').length;
+  const pendentes = ocorrencias.filter(o => o.status === 'Pendente' || o.status === 'pending').length;
+  const emTrat = ocorrencias.filter(o => o.status === 'Em Tratamento' || o.status === 'in_progress').length;
+  const criticas = ocorrencias.filter(o => (o.severity || o.gravidade) === 'critica' || (o.severity || o.gravidade) === 'critical').length;
   const hoje = new Date().toISOString().slice(0, 10);
-  const resolvidasHoje = ocorrencias.filter(o => o.status === 'Resolvida' && String(o.data || '').startsWith(hoje)).length;
+  const resolvidasHoje = ocorrencias.filter(o => (o.status === 'Resolvida' || o.status === 'resolved') && String(o.created_at || '').startsWith(hoje)).length;
 
   const getGrav = (val) => GRAVIDADES.find(g => g.val === val) || GRAVIDADES[1];
   const getTipo = (val) => TIPOS.find(t => t.val === val)?.label || val || '—';
@@ -157,7 +167,7 @@ export default function Ocorrencias() {
               ) : filtradas.length === 0 ? (
                 <tr><td colSpan={9} style={{ textAlign: 'center', color: '#90afd4', padding: 40 }}>Nenhuma ocorrência registrada</td></tr>
               ) : filtradas.map((o, i) => {
-                const grav = getGrav(o.gravidade);
+                const grav = getGrav(o.severity || o.gravidade);
                 return (
                   <tr key={o.id || i}>
                     <td>
@@ -165,10 +175,10 @@ export default function Ocorrencias() {
                         {grav.emoji} {grav.label}
                       </span>
                     </td>
-                    <td style={{ fontSize: 12, color: '#90afd4' }}>{o.data ? new Date(o.data).toLocaleString('pt-BR') : '—'}</td>
-                    <td style={{ fontSize: 12 }}>{getTipo(o.tipo)}</td>
-                    <td style={{ fontSize: 12 }}>{o.cliente || '—'}{o.pedido ? <><br /><span style={{ color: '#90afd4', fontSize: 11 }}>#{o.pedido}</span></> : ''}</td>
-                    <td style={{ fontSize: 12 }}>{veiculos.find(v => v.id === o.vehicle_id)?.name || o.veiculo || '—'}</td>
+                    <td style={{ fontSize: 12, color: '#90afd4' }}>{o.created_at ? new Date(o.created_at).toLocaleString('pt-BR') : '—'}</td>
+                    <td style={{ fontSize: 12 }}>{getTipo(o.type || o.tipo)}</td>
+                    <td style={{ fontSize: 12 }}>{o.client || '—'}{o.invoice ? <><br /><span style={{ color: '#90afd4', fontSize: 11 }}>#{o.invoice}</span></> : ''}</td>
+                    <td style={{ fontSize: 12 }}>{veiculos.find(v => v.id === o.vehicle)?.vda || o.vehicle || '—'}</td>
                     <td style={{ fontSize: 12, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.descricao || '—'}</td>
                     <td style={{ fontSize: 12, color: '#f59e0b' }}>{tempoDecorrido(o.data)}</td>
                     <td>
@@ -179,7 +189,7 @@ export default function Ocorrencias() {
                     </td>
                     <td>
                       <select value={o.status} onChange={async e => {
-                        try { await api.patch(`/ocorrencias/${o.id}`, { status: e.target.value }); load(); }
+                        try { await updateIncident(o.id, { status: e.target.value }); load(); }
                         catch { load(); }
                       }} style={{ background: '#0a1628', border: '1px solid #1e3a5c', color: '#e8f0fe', borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer' }}>
                         {STATUS_OPS.map(s => <option key={s} value={s}>{s}</option>)}
