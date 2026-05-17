@@ -133,6 +133,49 @@ export default function Roteirizacao() {
         position: DEPOSITO, map: mapObj.current, title: 'Deposito Gelocrim',
         icon: { path: window.google.maps.SymbolPath.CIRCLE, scale: 12, fillColor: '#e8521a', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 }
       });
+
+      // Drawing Manager
+      if (window.google.maps.drawing) {
+        const dm = new window.google.maps.drawing.DrawingManager({
+          drawingMode: null,
+          drawingControl: false,
+          polygonOptions: { fillColor: '#64B4FF', fillOpacity: 0.2, strokeColor: '#64B4FF', strokeWeight: 2 },
+          rectangleOptions: { fillColor: '#64B4FF', fillOpacity: 0.2, strokeColor: '#64B4FF', strokeWeight: 2 },
+          circleOptions: { fillColor: '#64B4FF', fillOpacity: 0.2, strokeColor: '#64B4FF', strokeWeight: 2 },
+        });
+        dm.setMap(mapObj.current);
+        mapObj.current._drawingManager = dm;
+
+        const handleShape = (shape, getPoints) => {
+          const points = getPoints();
+          setClientes(prev => {
+            const novos = {};
+            prev.forEach(c => {
+              if (c.lat && c.lng) {
+                const ponto = new window.google.maps.LatLng(c.lat, c.lng);
+                let dentro = false;
+                if (shape.type === 'polygon') {
+                  dentro = window.google.maps.geometry.poly.containsLocation(ponto, shape);
+                } else if (shape.type === 'rectangle') {
+                  dentro = shape.getBounds().contains(ponto);
+                } else if (shape.type === 'circle') {
+                  dentro = window.google.maps.geometry.spherical.computeDistanceBetween(ponto, shape.getCenter()) <= shape.getRadius();
+                }
+                if (dentro) novos[c.id] = c;
+              }
+            });
+            setSelecionados(prev2 => ({ ...prev2, ...novos }));
+            return prev;
+          });
+          shape.setMap(null);
+          dm.setDrawingMode(null);
+          setModoSel('individual');
+        };
+
+        window.google.maps.event.addListener(dm, 'polygoncomplete', shape => { shape.type = 'polygon'; handleShape(shape, () => []); });
+        window.google.maps.event.addListener(dm, 'rectanglecomplete', shape => { shape.type = 'rectangle'; handleShape(shape, () => []); });
+        window.google.maps.event.addListener(dm, 'circlecomplete', shape => { shape.type = 'circle'; handleShape(shape, () => []); });
+      }
     }
   }, []);
 
@@ -198,6 +241,16 @@ export default function Roteirizacao() {
   const regioes = [...new Set(clientes.map(c => c.regiao).filter(Boolean))].sort();
   const bairros = [...new Set(clientes.map(c => c.bairro).filter(Boolean))].sort();
 
+  // Ativar drawing manager quando modo muda
+  useEffect(() => {
+    const dm = mapObj.current?._drawingManager;
+    if (!dm) return;
+    if (modoSel === 'poligono') dm.setDrawingMode(window.google?.maps?.drawing?.OverlayType?.POLYGON);
+    else if (modoSel === 'retangulo') dm.setDrawingMode(window.google?.maps?.drawing?.OverlayType?.RECTANGLE);
+    else if (modoSel === 'circulo') dm.setDrawingMode(window.google?.maps?.drawing?.OverlayType?.CIRCLE);
+    else dm.setDrawingMode(null);
+  }, [modoSel]);
+
   const roteirizar = () => {
     if (!selArr.length) return alert('Selecione ao menos um cliente no mapa');
     if (!veiculo) return alert('Selecione um veículo');
@@ -229,16 +282,20 @@ export default function Roteirizacao() {
         {/* PASSO 1 */}
         <div className="card" style={{ padding: 10 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#64B4FF', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 8 }}>PASSO 1 — SELECIONE CLIENTES NO MAPA</div>
-          <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-            <button onClick={() => setModoSel('individual')} style={{ flex: 1, padding: '6px', border: `2px solid ${modoSel === 'individual' ? '#e8521a' : '#1e3a5c'}`, background: modoSel === 'individual' ? 'rgba(232,82,26,.15)' : 'transparent', color: modoSel === 'individual' ? '#e8521a' : '#90afd4', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
-              📌 Individual
-            </button>
-            <button onClick={() => setModoSel('area')} style={{ flex: 1, padding: '6px', border: `2px solid ${modoSel === 'area' ? '#64B4FF' : '#1e3a5c'}`, background: modoSel === 'area' ? 'rgba(100,180,255,.15)' : 'transparent', color: modoSel === 'area' ? '#64B4FF' : '#90afd4', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
-              ✏️ Desenhar Área
-            </button>
+          <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
+            {[
+              { value: 'individual', label: '📌 Individual' },
+              { value: 'poligono', label: '⬡ Polígono' },
+              { value: 'retangulo', label: '⬜ Retângulo' },
+              { value: 'circulo', label: '⭕ Círculo' },
+            ].map(m => (
+              <button key={m.value} onClick={() => setModoSel(m.value)} style={{ flex: 1, padding: '5px 4px', border: `2px solid ${modoSel === m.value ? '#64B4FF' : '#1e3a5c'}`, background: modoSel === m.value ? 'rgba(100,180,255,.15)' : 'transparent', color: modoSel === m.value ? '#64B4FF' : '#90afd4', borderRadius: 6, fontSize: 11, cursor: 'pointer', fontWeight: 600, minWidth: 0 }}>
+                {m.label}
+              </button>
+            ))}
           </div>
-          <div style={{ fontSize: 11, color: '#90afd4', textAlign: 'center' }}>
-            {modoSel === 'individual' ? '📌 Clique nos pins para selecionar individualmente' : '✏️ Desenhe uma área no mapa para selecionar'}
+          <div style={{ fontSize: 10, color: '#90afd4', textAlign: 'center' }}>
+            {modoSel === 'individual' ? '📌 Clique nos pins para selecionar' : `Desenhe ${modoSel === 'poligono' ? 'um polígono' : modoSel === 'retangulo' ? 'um retângulo' : 'um círculo'} no mapa`}
           </div>
         </div>
 
@@ -389,8 +446,8 @@ export default function Roteirizacao() {
         </div>
 
         {/* Mapa */}
-        <div style={{ flex: 1, borderRadius: 12, overflow: 'hidden' }}>
-          <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
+        <div style={{ flex: 1, borderRadius: 12, overflow: 'hidden', minHeight: 400 }}>
+          <div ref={mapRef} style={{ width: '100%', height: '100%', minHeight: 400 }} />
         </div>
       </div>
     </div>
