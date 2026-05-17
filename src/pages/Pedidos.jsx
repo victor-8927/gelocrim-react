@@ -237,10 +237,12 @@ export default function Pedidos() {
       let inseridos = 0;
       for (const lote of lotes) {
         const { error } = await supabase.from('orders').upsert(lote, { onConflict: 'external_id' });
-        if (error) setImportLog(prev => [...prev, `⚠️ ${error.message}`]);
-        else { inseridos += lote.length; setImportLog(prev => [...prev, `✅ ${inseridos}/${pedidos.length}`]); }
+        if (error) { setImportLog(prev => [...prev, `⚠️ ${error.message}`]); }
+        else { inseridos += lote.length; }
+        setImportLog(prev => [...prev, `✅ ${inseridos}/${pedidos.length}`]);
       }
-      setImportLog(prev => [...prev, `🎉 ${inseridos} pedidos importados!`]);
+      const totalIns = inseridos;
+      setImportLog(prev => [...prev, `🎉 ${totalIns} pedidos importados!`]);
       load();
     } catch (e) {
       setImportLog(prev => [...prev, `❌ ${e.message}`]);
@@ -281,10 +283,12 @@ export default function Pedidos() {
       let inseridos = 0;
       for (const lote of lotes) {
         const { error } = await supabase.from('order_items').upsert(lote, { onConflict: 'id' });
-        if (error) setImportLog(prev => [...prev, `⚠️ ${error.message}`]);
-        else { inseridos += lote.length; setImportLog(prev => [...prev, `✅ ${inseridos}/${todosItens.length}`]); }
+        if (error) { setImportLog(prev => [...prev, `⚠️ ${error.message}`]); }
+        else { inseridos += lote.length; }
+        setImportLog(prev => [...prev, `✅ ${inseridos}/${todosItens.length}`]);
       }
-      setImportLog(prev => [...prev, `🎉 ${inseridos} itens importados!`]);
+      const totalItens = inseridos;
+      setImportLog(prev => [...prev, `🎉 ${totalItens} itens importados!`]);
       load();
     } catch (e) {
       setImportLog(prev => [...prev, `❌ ${e.message}`]);
