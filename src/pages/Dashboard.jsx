@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import api from '../services/api';
-import { RefreshCw, Zap, MapPin } from 'lucide-react';
+import { RefreshCw, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const DEPOSITO = { lat: -3.093544, lng: -60.075812 };
