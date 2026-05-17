@@ -12,18 +12,18 @@ const FIM_BANCO = 20 * 60;
 const BALSA_LAT_LIMITE = -3.20;
 const BALSA_TEMPO_MIN = 60;
 
-function precisaBalsa(o) {
-  return parseFloat(o.lat) < BALSA_LAT_LIMITE;
-}
+function precisaBalsa(o) { return parseFloat(o.lat) < BALSA_LAT_LIMITE; }
 
-function calcEtas(ordem, horaInicio = '08:00', duracoesDirecoes = {}) {
+function calcEtas(ordem, horaInicio, duracoesDirecoes) {
+  if (!horaInicio) horaInicio = '08:00';
+  if (!duracoesDirecoes) duracoesDirecoes = {};
   const [h, m] = horaInicio.split(':').map(Number);
   let minutos = h * 60 + m;
   let almocoFeito = false;
   let prev = DEPOSITO;
   let balsaIdaFeita = false;
 
-  const result = ordem.map((o, idx) => {
+  const result = ordem.map(function(o, idx) {
     const duracaoReal = duracoesDirecoes[idx];
     const dlat = (parseFloat(o.lat) || prev.lat) - prev.lat;
     const dlng = (parseFloat(o.lng) || prev.lng) - prev.lng;
@@ -50,15 +50,12 @@ function calcEtas(ordem, horaInicio = '08:00', duracoesDirecoes = {}) {
     const hh = Math.floor(minutos / 60) % 24;
     const mm = minutos % 60;
     const eta = String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
-
     let jornada = 'normal', jornadaCor = '#00FF88';
     if (minutos > FIM_BANCO) { jornada = 'extra'; jornadaCor = '#FF3355'; }
     else if (minutos > FIM_NORMAL) { jornada = 'banco'; jornadaCor = '#FFD700'; }
-
     return { ...o, _eta: eta, _minutos: minutos, _distKm: String(distKm), _tempoAtend: tempoAtend, _tDeslocMin: tempoViagem, _jornada: jornada, _jornadaCor: jornadaCor, _balsa: precisaBalsa(o) };
   });
 
-  // Retorno ao depósito
   if (result.length > 0) {
     const ultimo = result[result.length - 1];
     let minutosRetorno = minutos;
@@ -124,10 +121,10 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
     if (polyRef.current) { if (polyRef.current.setMap) polyRef.current.setMap(null); else if (polyRef.current.setDirections) polyRef.current.setMap(null); }
 
     // Depósito
-    const svgDeposito = '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#e8521a" stroke="white" stroke-width="2"/><text x="20" y="26" text-anchor="middle" fill="white" font-size="16" font-family="Arial">🏠</text></svg>';
+    const svgDep = '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#e8521a" stroke="white" stroke-width="2"/><text x="20" y="27" text-anchor="middle" fill="white" font-size="18" font-family="Arial">🏠</text></svg>';
     new window.google.maps.Marker({
       position: DEPOSITO, map: mapObj.current, title: 'Depósito Gelocrim',
-      icon: { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svgDeposito), scaledSize: new window.google.maps.Size(40, 40), anchor: new window.google.maps.Point(20, 20) }
+      icon: { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svgDep), scaledSize: new window.google.maps.Size(40, 40), anchor: new window.google.maps.Point(20, 20) }
     });
 
     const path = [DEPOSITO];
@@ -140,13 +137,13 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
       path.push(pos);
       bounds.extend(pos);
 
-      const numLabel = String(i + 1);
-      const svgPin = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="44" viewBox="0 0 32 44"><path d="M16 1C9.4 1 4 6.4 4 13c0 9.5 12 30 12 30s12-20.5 12-30C28 6.4 22.6 1 16 1z" fill="#111827" stroke="white" stroke-width="1.5"/><circle cx="16" cy="13" r="8" fill="#111827"/><text x="16" y="18" text-anchor="middle" fill="white" font-size="' + (numLabel.length > 1 ? '9' : '11') + '" font-weight="bold" font-family="Arial">' + numLabel + '</text></svg>';
+      var num = String(i + 1);
+      var fs = num.length > 1 ? '9' : '11';
+      var svgMk = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="44" viewBox="0 0 32 44"><path d="M16 1C9.4 1 4 6.4 4 13c0 9.5 12 30 12 30s12-20.5 12-30C28 6.4 22.6 1 16 1z" fill="#111827" stroke="white" stroke-width="1.5"/><circle cx="16" cy="13" r="8" fill="#111827"/><text x="16" y="18" text-anchor="middle" fill="white" font-size="' + fs + '" font-weight="bold" font-family="Arial">' + num + '</text></svg>';
       const mk = new window.google.maps.Marker({
         position: pos, map: mapObj.current, title: o.recipient_name || o.name,
-        icon: { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svgPin), scaledSize: new window.google.maps.Size(32, 44), anchor: new window.google.maps.Point(16, 44) },
-        zIndex: i + 1,
-
+        icon: { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svgMk), scaledSize: new window.google.maps.Size(32, 44), anchor: new window.google.maps.Point(16, 44) },
+        zIndex: i + 1
       });
       markersRef.current.push(mk);
     });
@@ -259,65 +256,44 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
     try {
       const codparcs = ordem.map(o => parseInt(o.codparc)).filter(Boolean);
       if (codparcs.length) {
-        const comGps = ordem.filter(o => o.lat && o.lng);
-        if (comGps.length < 2) {
-          alert('Mínimo 2 clientes com GPS para otimizar');
-          setOtimizando(false);
-          return;
-        }
-        const waypoints = comGps.map(o => ({
-          location: { lat: parseFloat(o.lat), lng: parseFloat(o.lng) },
-          stopover: true
-        }));
-        const directionsService = new window.google.maps.DirectionsService();
-        directionsService.route({
+        const comGps2 = ordem.filter(function(o) { return o.lat && o.lng; });
+        if (comGps2.length < 2) { setReprocessando(false); setConfirmado(false); return; }
+        const waypoints2 = comGps2.map(function(o) {
+          return { location: { lat: parseFloat(o.lat), lng: parseFloat(o.lng) }, stopover: true };
+        });
+        const ds2 = new window.google.maps.DirectionsService();
+        ds2.route({
           origin: DEPOSITO,
           destination: DEPOSITO,
-          waypoints,
+          waypoints: waypoints2,
           optimizeWaypoints: true,
           travelMode: window.google.maps.TravelMode.DRIVING,
-        }, (result, status) => {
+        }, function(result, status) {
           if (status === 'OK') {
-            const waypointOrder = result.routes[0].waypoint_order;
-            const novaOrdem = waypointOrder.map(i => comGps[i]);
-            const duracoes = {};
-            result.routes[0].legs.forEach((leg, i) => {
-              if (i < novaOrdem.length) {
-                duracoes[i] = Math.round(leg.duration.value / 60);
-                duracoes['dist_' + i] = (leg.distance.value / 1000).toFixed(1);
+            const order2 = result.routes[0].waypoint_order;
+            const novaOrdem2 = order2.map(function(i) { return comGps2[i]; });
+            const dur2 = {};
+            result.routes[0].legs.forEach(function(leg, i) {
+              if (i < novaOrdem2.length) {
+                dur2[i] = Math.round(leg.duration.value / 60);
+                dur2['dist_' + i] = (leg.distance.value / 1000).toFixed(1);
               }
             });
-            setOrdem(calcEtas(novaOrdem, horaInicio, duracoes));
-            if (dirRendererRef.current) dirRendererRef.current.setMap(null);
-            dirRendererRef.current = new window.google.maps.DirectionsRenderer({
-              suppressMarkers: true,
-              polylineOptions: { strokeColor: '#64B4FF', strokeOpacity: 0.9, strokeWeight: 5 }
-            });
-            dirRendererRef.current.setMap(mapObj.current);
-            dirRendererRef.current.setDirections(result);
+            setOrdem(calcEtas(novaOrdem2, horaInicio, dur2));
           } else {
-            api.post('/routes/otimizar', {
-              codparcs, modo: modoOtim, escopo,
-              hora_saida: horaInicio,
-              deposito_lat: DEPOSITO.lat, deposito_lng: DEPOSITO.lng
-            }).then(res => {
-              if (res && res.sequencia && res.sequencia.length) {
-                const novaOrdem = [];
-                res.sequencia.forEach(s => {
-                  const encontrado = ordem.find(o => parseInt(o.codparc) === parseInt(s.codparc));
-                  if (encontrado) novaOrdem.push({ ...encontrado, _eta: s.eta, _distKm: (s.dist_m / 1000).toFixed(1) });
-                });
-                ordem.forEach(o => { if (!o.codparc) novaOrdem.push(o); });
-                setOrdem(calcEtas(novaOrdem, horaInicio));
-              }
-            }).catch(() => {});
+            setOrdem(calcEtas(ordem, horaInicio));
           }
           setReprocessando(false);
+          setConfirmado(false);
         });
-      } catch (e) {
+      } else {
         setOrdem(calcEtas(ordem, horaInicio));
-      } finally {
         setReprocessando(false);
+        setConfirmado(false);
+      }
+    } catch (e) {
+      setOrdem(calcEtas(ordem, horaInicio));
+      setReprocessando(false);
       setConfirmado(false);
     }
   };
