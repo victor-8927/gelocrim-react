@@ -10,18 +10,40 @@ const ALMOCO_DUR = 72;
 const FIM_NORMAL = 18 * 60;
 const FIM_BANCO = 20 * 60;
 
-function calcEtas(ordem, horaInicio = '08:00') {
+// Detecta se cliente está do lado do Careiro (sul do Amazonas)
+const BALSA_LAT_LIMITE = -3.20; // clientes abaixo desta lat precisam de balsa
+const BALSA_TEMPO_MIN = 60; // 1 hora de travessia
+const PORTO_CEASA = { lat: -3.1307, lng: -60.0233 };
+
+function precisaBalsa(o) {
+  return parseFloat(o.lat) < BALSA_LAT_LIMITE;
+}
+
+function calcEtas(ordem, horaInicio = '08:00', duracoesDirecoes = {}) {
   const [h, m] = horaInicio.split(':').map(Number);
   let minutos = h * 60 + m;
   let almocoFeito = false;
   let prev = DEPOSITO;
+  let balsaIdaFeita = false;
+  let balsaVoltaFeita = false;
 
-  return ordem.map(o => {
+  const result = ordem.map((o, idx) => {
+    // Usar tempo real do Google Directions se disponível
+    const duracaoReal = duracoesDirecoes[idx];
     const dlat = (parseFloat(o.lat) || prev.lat) - prev.lat;
     const dlng = (parseFloat(o.lng) || prev.lng) - prev.lng;
-    const distKm = Math.sqrt(dlat * dlat + dlng * dlng) * 111;
-    const tempoViagem = Math.round(distKm / VEL_MEDIA * 60);
+    const distKm = duracoesDirecoes[`dist_${idx}`] || parseFloat((Math.sqrt(dlat * dlat + dlng * dlng) * 111).toFixed(1));
+    const tempoViagem = duracaoReal || Math.round(distKm / VEL_MEDIA * 60);
     const tempoAtend = parseInt(o.service_time || o._tempoAtend || 20);
+
+    // Balsa ida — primeira vez que encontra cliente do Careiro
+    if (precisaBalsa(o) && !balsaIdaFeita) {
+      balsaIdaFeita = true;
+      // Espera pela próxima saída (balsas de hora em hora)
+      const minActual = minutos % 60;
+      const espera = minActual === 0 ? 0 : 60 - minActual;
+      minutos += espera + BALSA_TEMPO_MIN;
+    }
 
     if (!almocoFeito && (minutos + tempoViagem) >= ALMOCO_MIN) {
       minutos = ALMOCO_MIN + ALMOCO_DUR;
@@ -39,8 +61,36 @@ function calcEtas(ordem, horaInicio = '08:00') {
     if (minutos > FIM_BANCO) { jornada = 'extra'; jornadaCor = '#FF3355'; }
     else if (minutos > FIM_NORMAL) { jornada = 'banco'; jornadaCor = '#FFD700'; }
 
-    return { ...o, _eta: eta, _minutos: minutos, _distKm: distKm.toFixed(1), _tempoAtend: tempoAtend, _tDeslocMin: tempoViagem, _jornada: jornada, _jornadaCor: jornadaCor };
+    return { ...o, _eta: eta, _minutos: minutos, _distKm: distKm, _tempoAtend: tempoAtend, _tDeslocMin: tempoViagem, _jornada: jornada, _jornadaCor: jornadaCor, _balsa: precisaBalsa(o) };
   });
+
+  // Calcular retorno ao depósito
+  const ultimo = result[result.length - 1];
+  if (ultimo) {
+    let minutosRetorno = minutos;
+    // Balsa volta se necessário
+    if (balsaIdaFeita && !balsaVoltaFeita) {
+      const minActual = minutosRetorno % 60;
+      const espera = minActual === 0 ? 0 : 60 - minActual;
+      minutosRetorno += espera + BALSA_TEMPO_MIN;
+      balsaVoltaFeita = true;
+    }
+    const dlat = DEPOSITO.lat - parseFloat(ultimo.lat || DEPOSITO.lat);
+    const dlng = DEPOSITO.lng - parseFloat(ultimo.lng || DEPOSITO.lng);
+    const distRetorno = Math.sqrt(dlat * dlat + dlng * dlng) * 111;
+    const tempoRetorno = Math.round(distRetorno / VEL_MEDIA * 60);
+    minutosRetorno += tempoRetorno;
+    const hh = Math.floor(minutosRetorno / 60) % 24;
+    const mm = minutosRetorno % 60;
+    result._retorno = {
+      eta: String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0'),
+      distKm: distRetorno.toFixed(1),
+      tempoMin: tempoRetorno,
+      comBalsa: balsaIdaFeita,
+    };
+  }
+
+  return result;
 }
 
 export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudantes = [], onFechar, onGravar }) {
@@ -57,6 +107,7 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
   const mapObj = useRef(null);
   const markersRef = useRef([]);
   const polyRef = useRef(null);
+  const dirRendererRef = useRef(null);
 
   // Inicializa ordem com ETAs
   useEffect(() => {
@@ -85,9 +136,14 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
     if (polyRef.current) { if (polyRef.current.setMap) polyRef.current.setMap(null); else if (polyRef.current.setDirections) polyRef.current.setMap(null); }
 
     // Depósito
+    // Ícone casa laranja para o depósito
+    const svgDeposito = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+      <circle cx="20" cy="20" r="18" fill="#e8521a" stroke="white" stroke-width="2"/>
+      <text x="20" y="26" text-anchor="middle" fill="white" font-size="18">🏠</text>
+    </svg>`;
     new window.google.maps.Marker({
-      position: DEPOSITO, map: mapObj.current, title: 'Deposito',
-      icon: { path: window.google.maps.SymbolPath.CIRCLE, scale: 12, fillColor: '#e8521a', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 }
+      position: DEPOSITO, map: mapObj.current, title: 'Depósito Gelocrim',
+      icon: { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svgDeposito), scaledSize: new window.google.maps.Size(40, 40), anchor: new window.google.maps.Point(20, 20) }
     });
 
     const path = [DEPOSITO];
@@ -100,11 +156,15 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
       path.push(pos);
       bounds.extend(pos);
 
+      // Pin gota SVG preto com número branco
+      const svgPin = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="42" viewBox="0 0 32 42">
+        <path d="M16 0C9.37 0 4 5.37 4 12c0 9 12 30 12 30s12-21 12-30C28 5.37 22.63 0 16 0z" fill="#111827" stroke="#fff" stroke-width="1.5"/>
+        <circle cx="16" cy="12" r="8" fill="#111827"/>
+        <text x="16" y="17" text-anchor="middle" fill="white" font-size="11" font-weight="bold" font-family="Arial">${i + 1}</text>
+      </svg>`;
       const mk = new window.google.maps.Marker({
         position: pos, map: mapObj.current, title: o.recipient_name || o.name,
-        label: { text: String(i + 1), color: '#001020', fontWeight: 'bold', fontSize: '11px' },
-        icon: { path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z', fillColor: o._jornadaCor || '#64B4FF', fillOpacity: 1, strokeColor: '#001020', strokeWeight: 1, scale: 1.5, anchor: new window.google.maps.Point(12, 22) }
-      });
+        icon: { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svgPin), scaledSize: new window.google.maps.Size(32, 42), anchor: new window.google.maps.Point(16, 42) },
       markersRef.current.push(mk);
     });
 
@@ -131,13 +191,13 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
           polyRef.current = renderer;
         } else {
           polyRef.current = new window.google.maps.Polyline({
-            path, map: mapObj.current, strokeColor: '#64B4FF', strokeOpacity: 0.8, strokeWeight: 3
+            path, map: mapObj.current, strokeColor: '#64B4FF', strokeOpacity: 0.9, strokeWeight: 5
           });
         }
       });
     } else {
       polyRef.current = new window.google.maps.Polyline({
-        path, map: mapObj.current, strokeColor: '#64B4FF', strokeOpacity: 0.8, strokeWeight: 3
+        path, map: mapObj.current, strokeColor: '#64B4FF', strokeOpacity: 0.9, strokeWeight: 5
       });
     }
 
@@ -216,19 +276,51 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
     try {
       const codparcs = ordem.map(o => parseInt(o.codparc)).filter(Boolean);
       if (codparcs.length) {
-        const res = await api.post('/routes/otimizar', {
-          codparcs, modo: modoOtim, escopo,
-          hora_saida: horaInicio,
-          deposito_lat: DEPOSITO.lat, deposito_lng: DEPOSITO.lng
-        });
-        if (res.sequencia?.length) {
-          const novaOrdem = [];
-          res.sequencia.forEach(s => {
-            const encontrado = ordem.find(o => parseInt(o.codparc) === parseInt(s.codparc));
-            if (encontrado) novaOrdem.push({ ...encontrado, _eta: s.eta, _distKm: (s.dist_m / 1000).toFixed(1) });
-          });
-          ordem.forEach(o => { if (!o.codparc) novaOrdem.push(o); });
-          setOrdem(calcEtas(novaOrdem, horaInicio));
+        // Usar Google Directions API com optimizeWaypoints
+        const comGps = ordem.filter(o => o.lat && o.lng);
+        if (comGps.length < 2) { alert('Mínimo 2 clientes com GPS para otimizar'); setOtimizando(false); return; }
+        
+        const waypoints = comGps.map(o => ({ location: { lat: parseFloat(o.lat), lng: parseFloat(o.lng) }, stopover: true }));
+        
+        const directionsService = new window.google.maps.DirectionsService();
+        directionsService.route({
+          origin: DEPOSITO,
+          destination: DEPOSITO,
+          waypoints,
+          optimizeWaypoints: true,
+          travelMode: window.google.maps.TravelMode.DRIVING,
+        }, (result, status) => {
+          if (status === 'OK') {
+            const waypointOrder = result.routes[0].waypoint_order;
+            const novaOrdem = waypointOrder.map(idx => comGps[idx]);
+            const duracoes = {};
+            result.routes[0].legs.forEach((leg, i) => {
+              if (i < novaOrdem.length) {
+                duracoes[i] = Math.round(leg.duration.value / 60);
+                duracoes[`dist_${i}`] = (leg.distance.value / 1000).toFixed(1);
+              }
+            });
+            setOrdem(calcEtas(novaOrdem, horaInicio, duracoes));
+            // Desenhar rota real no mapa
+            if (dirRendererRef.current) dirRendererRef.current.setMap(null);
+            if (!dirRendererRef.current) dirRendererRef.current = new window.google.maps.DirectionsRenderer({ suppressMarkers: true, polylineOptions: { strokeColor: '#64B4FF', strokeOpacity: 0.9, strokeWeight: 5 } });
+            dirRendererRef.current.setMap(mapObj.current);
+            dirRendererRef.current.setDirections(result);
+          } else {
+            // Fallback para Railway se Google falhar
+            api.post('/routes/otimizar', {
+              codparcs, modo: modoOtim, escopo,
+              hora_saida: horaInicio,
+              deposito_lat: DEPOSITO.lat, deposito_lng: DEPOSITO.lng
+            }).then(res => {
+              if (res.sequencia?.length) {
+                const novaOrdem = [];
+                res.sequencia.forEach(s => {
+                  const encontrado = ordem.find(o => parseInt(o.codparc) === parseInt(s.codparc));
+                  if (encontrado) novaOrdem.push({ ...encontrado, _eta: s.eta, _distKm: (s.dist_m / 1000).toFixed(1) });
+                });
+                ordem.forEach(o => { if (!o.codparc) novaOrdem.push(o); });
+                setOrdem(calcEtas(novaOrdem, horaInicio));
         }
       } else {
         // Fallback local - nearest neighbor
