@@ -146,7 +146,7 @@ export default function Roteirizacao() {
       if (filtroRota && !(c.rota || '').includes(filtroRota)) return false;
       if (filtroRegiao && (c.regiao || '') !== filtroRegiao) return false;
       if (filtroBairro && !(c.bairro || '').toLowerCase().includes(filtroBairro.toLowerCase())) return false;
-      if (filtroBusca && !(c.recipient_name || '').toLowerCase().includes(filtroBusca.toLowerCase())) return false;
+      if (filtroBusca && !(c.recipient_name || '').toLowerCase().includes(filtroBusca.toLowerCase()) && !String(c.codparc || '').includes(filtroBusca)) return false;
       return true;
     });
 
@@ -309,7 +309,7 @@ export default function Roteirizacao() {
             <span style={{ fontSize: 11, fontWeight: 700, color: '#90afd4', textTransform: 'uppercase' }}>CLIENTES SELECIONADOS ({selArr.length})</span>
             {selArr.length > 0 && <button onClick={() => setSelecionados({})} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 11 }}>Limpar</button>}
           </div>
-          <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+          <div style={{ maxHeight: 300, overflowY: 'auto' }}>
             {selArr.length === 0 ? (
               <div style={{ color: '#90afd4', fontSize: 12, textAlign: 'center', padding: 16 }}>Clique nos pins laranjos no mapa para selecionar clientes.</div>
             ) : selArr.map((c, i) => (

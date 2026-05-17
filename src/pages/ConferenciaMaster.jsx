@@ -81,7 +81,7 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
     if (!mapObj.current || !window.google || !ordem.length) return;
     markersRef.current.forEach(m => m.setMap(null));
     markersRef.current = [];
-    if (polyRef.current) polyRef.current.setMap(null);
+    if (polyRef.current) { if (polyRef.current.setMap) polyRef.current.setMap(null); else if (polyRef.current.setDirections) polyRef.current.setMap(null); }
 
     // Depósito
     new window.google.maps.Marker({
@@ -108,9 +108,37 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
     });
 
     path.push(DEPOSITO);
-    polyRef.current = new window.google.maps.Polyline({
-      path, map: mapObj.current, strokeColor: '#64B4FF', strokeOpacity: 0.8, strokeWeight: 3
-    });
+    
+    // Tentar usar Directions API para rota real
+    const directionsService = new window.google.maps.DirectionsService();
+    const waypoints = path.slice(1, path.length - 1).map(p => ({ location: p, stopover: true }));
+    
+    if (waypoints.length > 0 && waypoints.length <= 23) {
+      directionsService.route({
+        origin: DEPOSITO,
+        destination: DEPOSITO,
+        waypoints: waypoints,
+        optimizeWaypoints: false,
+        travelMode: window.google.maps.TravelMode.DRIVING
+      }, (result, status) => {
+        if (status === 'OK') {
+          const renderer = new window.google.maps.DirectionsRenderer({
+            map: mapObj.current, suppressMarkers: true,
+            polylineOptions: { strokeColor: '#64B4FF', strokeWeight: 3, strokeOpacity: 0.8 }
+          });
+          renderer.setDirections(result);
+          polyRef.current = renderer;
+        } else {
+          polyRef.current = new window.google.maps.Polyline({
+            path, map: mapObj.current, strokeColor: '#64B4FF', strokeOpacity: 0.8, strokeWeight: 3
+          });
+        }
+      });
+    } else {
+      polyRef.current = new window.google.maps.Polyline({
+        path, map: mapObj.current, strokeColor: '#64B4FF', strokeOpacity: 0.8, strokeWeight: 3
+      });
+    }
 
     mapObj.current.fitBounds(bounds);
   }, [ordem]);
@@ -119,8 +147,9 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
 
   // Calculos
   const pesoTotal = ordem.reduce((s, o) => s + (parseFloat(o.weight_kg) || (parseFloat(o.peso) || 0)), 0);
-  const volTotal = ordem.reduce((s, o) => s + (parseFloat(o.volume_m3) || pesoTotal * 0.002), 0);
+  const volTotal = ordem.reduce((s, o) => s + (parseFloat(o.volume_m3) || (parseFloat(o.weight_kg) || 0) * 0.001), 0);
   const fatTotal = ordem.reduce((s, o) => s + (parseFloat(o.total_value) || 0), 0);
+  const palletsEst = Math.ceil(pesoTotal / 1150) || 0;
   const capKg = parseFloat(veiculo?.capacity_kg || 5000);
   const capM3 = parseFloat(veiculo?.capacity_m3 || 20); // eslint-disable-line
   const pctCap = Math.round(pesoTotal / capKg * 100);
@@ -404,7 +433,7 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid rgba(30,58,92,.5)' }}>
                   <span style={{ fontSize: 11, color: '#90afd4' }}>🪵 Pallets</span>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: '#e8f0fe' }}>{ordem.reduce((s,o) => s + (parseInt(o.pallets)||0), 0) || '—'}</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#e8f0fe' }}>{palletsEst || '—'}</span>
                 </div>
                 {/* Barra de peso */}
                 <div style={{ height: 6, background: '#1e3a5c', borderRadius: 3, marginTop: 6, overflow: 'hidden' }}>
@@ -425,7 +454,8 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
                   { label: '1008 Consig.', key: '1008' },
                 ].map(top => {
                   const val = ordem.reduce((s, o) => {
-                    if ((o.order_type || '') === top.key) return s + (parseFloat(o.total_value) || 0);
+                    const tipo = String(o.order_type || o.top || '');
+                    if (tipo === top.key || tipo.includes(top.key)) return s + (parseFloat(o.total_value) || 0);
                     return s;
                   }, 0);
                   return (
