@@ -16,15 +16,6 @@ import Producao from './pages/Producao';
 import Relatorios from './pages/Relatorios';
 import Sankhya from './pages/Sankhya';
 
-const Placeholder = ({ title }) => (
-  <div>
-    <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>{title}</h1>
-    <div className="card" style={{ textAlign: 'center', padding: 60, color: '#90afd4' }}>
-      <div style={{ fontSize: 40, marginBottom: 16 }}>🚧</div>
-      <div style={{ fontSize: 16, fontWeight: 600 }}>Em desenvolvimento</div>
-    </div>
-  </div>
-);
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
