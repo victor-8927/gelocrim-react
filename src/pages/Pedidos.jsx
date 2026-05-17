@@ -234,14 +234,10 @@ export default function Pedidos() {
       setImportLog(prev => [...prev, `📍 ${comGps}/${pedidos.length} com GPS`]);
       const lotes = [];
       for (let i = 0; i < pedidos.length; i += 50) lotes.push(pedidos.slice(i, i + 50));
-      let inseridos = 0;
-      for (const lote of lotes) {
-        const { error } = await supabase.from('orders').upsert(lote, { onConflict: 'external_id' });
-        if (error) { setImportLog(prev => [...prev, `⚠️ ${error.message}`]); }
-        else { inseridos += lote.length; }
-        setImportLog(prev => [...prev, `✅ ${inseridos}/${pedidos.length}`]);
-      }
-      const totalIns = inseridos;
+      const resultados = await Promise.all(lotes.map(lote => supabase.from('orders').upsert(lote, { onConflict: 'external_id' })));
+      const erros = resultados.filter(r => r.error);
+      const totalIns = pedidos.length - (erros.length * 50);
+      if (erros.length) setImportLog(prev => [...prev, `⚠️ ${erros.length} lotes com erro`]);
       setImportLog(prev => [...prev, `🎉 ${totalIns} pedidos importados!`]);
       load();
     } catch (e) {
@@ -280,14 +276,10 @@ export default function Pedidos() {
       });
       const lotes = [];
       for (let i = 0; i < todosItens.length; i += 100) lotes.push(todosItens.slice(i, i + 100));
-      let inseridos = 0;
-      for (const lote of lotes) {
-        const { error } = await supabase.from('order_items').upsert(lote, { onConflict: 'id' });
-        if (error) { setImportLog(prev => [...prev, `⚠️ ${error.message}`]); }
-        else { inseridos += lote.length; }
-        setImportLog(prev => [...prev, `✅ ${inseridos}/${todosItens.length}`]);
-      }
-      const totalItens = inseridos;
+      const resultados = await Promise.all(lotes.map(lote => supabase.from('order_items').upsert(lote, { onConflict: 'id' })));
+      const erros = resultados.filter(r => r.error);
+      const totalItens = todosItens.length;
+      if (erros.length) setImportLog(prev => [...prev, `⚠️ ${erros.length} lotes com erro`]);
       setImportLog(prev => [...prev, `🎉 ${totalItens} itens importados!`]);
       load();
     } catch (e) {
