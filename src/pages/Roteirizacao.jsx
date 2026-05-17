@@ -146,8 +146,7 @@ export default function Roteirizacao() {
         dm.setMap(mapObj.current);
         mapObj.current._drawingManager = dm;
 
-        const handleShape = (shape, getPoints) => {
-          const points = getPoints();
+        const handleShape = (shape) => {
           setClientes(prev => {
             const novos = {};
             prev.forEach(c => {
@@ -172,9 +171,9 @@ export default function Roteirizacao() {
           setModoSel('individual');
         };
 
-        window.google.maps.event.addListener(dm, 'polygoncomplete', shape => { shape.type = 'polygon'; handleShape(shape, () => []); });
-        window.google.maps.event.addListener(dm, 'rectanglecomplete', shape => { shape.type = 'rectangle'; handleShape(shape, () => []); });
-        window.google.maps.event.addListener(dm, 'circlecomplete', shape => { shape.type = 'circle'; handleShape(shape, () => []); });
+        window.google.maps.event.addListener(dm, 'polygoncomplete', shape => { shape.type = 'polygon'; handleShape(shape); });
+        window.google.maps.event.addListener(dm, 'rectanglecomplete', shape => { shape.type = 'rectangle'; handleShape(shape); });
+        window.google.maps.event.addListener(dm, 'circlecomplete', shape => { shape.type = 'circle'; handleShape(shape); });
       }
     }
   }, []);
