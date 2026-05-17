@@ -122,6 +122,7 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
   const volTotal = ordem.reduce((s, o) => s + (parseFloat(o.volume_m3) || pesoTotal * 0.002), 0);
   const fatTotal = ordem.reduce((s, o) => s + (parseFloat(o.total_value) || 0), 0);
   const capKg = parseFloat(veiculo?.capacity_kg || 5000);
+  const capM3 = parseFloat(veiculo?.capacity_m3 || 20); // eslint-disable-line
   const pctCap = Math.round(pesoTotal / capKg * 100);
   const corPeso = pctCap <= 100 ? '#00FF88' : pctCap <= 120 ? '#FFD700' : '#FF3355';
   const distTotal = ordem.reduce((s, o) => s + parseFloat(o._distKm || 0), 0);
@@ -385,6 +386,7 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
                   { label: 'Motorista', value: equipeStr || '—' },
                   { label: 'Entregas', value: `${ordem.length} paradas · ${ordem.filter(o => o.lat && o.lng).length} com GPS` },
                   { label: 'Distância', value: `${(distTotal + distRetorno).toFixed(0)} km (real)` },
+                { label: 'Capacidade', value: `${capKg.toLocaleString('pt-BR')} kg / ${parseFloat(veiculo?.capacity_m3 || 0)} m³` },
                 ].map(item => (
                   <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid rgba(30,58,92,.5)' }}>
                     <span style={{ fontSize: 11, color: '#90afd4' }}>{item.label}</span>
@@ -399,6 +401,10 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid rgba(30,58,92,.5)' }}>
                   <span style={{ fontSize: 11, color: '#90afd4' }}>📦 Volume</span>
                   <span style={{ fontSize: 11, fontWeight: 600, color: '#e8f0fe' }}>{volTotal.toFixed(2)} m³</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid rgba(30,58,92,.5)' }}>
+                  <span style={{ fontSize: 11, color: '#90afd4' }}>🪵 Pallets</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#e8f0fe' }}>{ordem.reduce((s,o) => s + (parseInt(o.pallets)||0), 0) || '—'}</span>
                 </div>
                 {/* Barra de peso */}
                 <div style={{ height: 6, background: '#1e3a5c', borderRadius: 3, marginTop: 6, overflow: 'hidden' }}>
