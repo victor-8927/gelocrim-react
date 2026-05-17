@@ -131,15 +131,26 @@ export default function Pedidos() {
 
   useEffect(() => { load(); }, []); // eslint-disable-line
 
-  const regioes = [...new Set(pedidos.map(p => p.geo_zone || p.regiao).filter(Boolean))].sort();
+  const regioes = [...new Set(pedidos.map(p => p.geo_zone || p.regiao || p.region).filter(Boolean))].sort();
 
   const filtrados = pedidos.filter(p => {
-    if (busca && !(p.recipient_name || '').toLowerCase().includes(busca.toLowerCase()) &&
-        !(p.external_id || '').toLowerCase().includes(busca.toLowerCase()) &&
-        !(p.address || '').toLowerCase().includes(busca.toLowerCase())) return false;
+    if (busca) {
+      const b = busca.toLowerCase();
+      const match = (p.recipient_name || '').toLowerCase().includes(b) ||
+        String(p.external_id || '').toLowerCase().includes(b) ||
+        String(p.codparc || '').includes(b) ||
+        (p.address || '').toLowerCase().includes(b);
+      if (!match) return false;
+    }
     if (status && p.status !== status) return false;
-    if (filtroRegiao && (p.geo_zone || p.regiao) !== filtroRegiao) return false;
-    if (filtroTop && p.order_type !== filtroTop) return false;
+    if (filtroRegiao) {
+      const reg = p.geo_zone || p.regiao || p.region || '';
+      if (reg !== filtroRegiao) return false;
+    }
+    if (filtroTop) {
+      const top = String(p.order_type || p.top || '');
+      if (top !== filtroTop) return false;
+    }
     return true;
   }).slice(0, limite);
 
