@@ -165,6 +165,7 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
       const mk = new window.google.maps.Marker({
         position: pos, map: mapObj.current, title: o.recipient_name || o.name,
         icon: { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svgPin), scaledSize: new window.google.maps.Size(32, 42), anchor: new window.google.maps.Point(16, 42) },
+      });
       markersRef.current.push(mk);
     });
 
