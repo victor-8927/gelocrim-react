@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
-import { RefreshCw, Download, BarChart2, TrendingUp, Truck, Target } from 'lucide-react';
+import { RefreshCw, Download } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const TIPOS = [
-  { value: 'overview', label: 'Visao Geral' },
-  { value: 'team', label: 'Produtividade da Equipe' },
-  { value: 'fuel', label: 'Consumo de Combustivel' },
-  { value: 'clients', label: 'Performance por Cliente' },
-  { value: 'zones', label: 'Calor por Zona de Manaus' },
+  { value: 'overview', label: '📊 Visão Geral' },
+  { value: 'team', label: '👥 Produtividade da Equipe' },
+  { value: 'fuel', label: '⛽ Consumo de Combustível' },
+  { value: 'clients', label: '🏪 Performance por Cliente' },
+  { value: 'zones', label: '📍 Calor por Zona de Manaus' },
 ];
 
 export default function Relatorios() {
@@ -81,12 +81,13 @@ export default function Relatorios() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700 }}>Relatorios e Business Intelligence</h1>
-          <p style={{ color: '#90afd4', fontSize: 13, marginTop: 4 }}>Analise estrategica da operacao de Manaus</p>
+          <h1 style={{ fontSize: 24, fontWeight: 700 }}>📊 Relatórios e Business Intelligence</h1>
+          <p style={{ color: '#90afd4', fontSize: 13, marginTop: 4 }}>Análise estratégica da operação de Manaus</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-secondary" onClick={exportCSV}><Download size={14} /> Exportar CSV</button>
-          <button className="btn btn-secondary" onClick={load}><RefreshCw size={14} /> Atualizar</button>
+          <button className="btn btn-secondary" onClick={exportCSV}><Download size={14} /> 📥 Exportar CSV</button>
+          <button className="btn btn-secondary" onClick={() => window.print()}>📄 Exportar PDF</button>
+          <button className="btn btn-primary" onClick={load}><RefreshCw size={14} /> ⚡ Gerar Relatório</button>
         </div>
       </div>
 
@@ -113,22 +114,19 @@ export default function Relatorios() {
             </button>
           ))}
         </div>
-        <button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-end' }} onClick={load}>Gerar Relatorio</button>
+
       </div>
 
       {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
         {[
-          { label: 'Eficiencia de Entrega', value: `${taxaEntrega}%`, sub: 'entregas no prazo', icon: Target, color: '#10b981' },
-          { label: 'Custo por KG', value: '—', sub: 'R$ por kg transportado', icon: TrendingUp, color: '#64B4FF' },
-          { label: 'Ocupacao da Frota', value: fleet.vehicles_active ? `${fleet.vehicles_active}` : '—', sub: 'veiculos aproveitamento medio', icon: Truck, color: '#f97316' },
-          { label: 'Desvio de Rota', value: '—', sub: 'KM real vs planejado', icon: BarChart2, color: '#a78bfa' },
+          { emoji: '✅', label: 'Eficiência de Entrega', value: taxaEntrega > 0 ? `${taxaEntrega}%` : '—', sub: 'entregas no prazo', color: '#10b981' },
+          { emoji: '💲', label: 'Custo por KG', value: '—', sub: 'R$ por kg transportado', color: '#64B4FF' },
+          { emoji: '🚛', label: 'Ocupação da Frota', value: fleet.vehicles_active ? `${fleet.vehicles_active}` : '—', sub: 'aproveitamento médio', color: '#f97316' },
+          { emoji: '📍', label: 'Desvio de Rota', value: '—', sub: 'KM real vs planejado', color: '#a78bfa' },
         ].map(k => (
           <div key={k.label} className="card">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-              <k.icon size={18} color={k.color} />
-              <span style={{ fontSize: 11, color: '#90afd4', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{k.label}</span>
-            </div>
+            <div style={{ fontSize: 11, color: '#90afd4', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>{k.emoji} {k.label}</div>
             <div style={{ fontSize: 28, fontWeight: 700, color: k.color }}>{k.value}</div>
             <div style={{ fontSize: 11, color: '#90afd4', marginTop: 4 }}>{k.sub}</div>
           </div>
