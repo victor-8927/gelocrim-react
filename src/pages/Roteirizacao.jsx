@@ -169,6 +169,7 @@ export default function Roteirizacao() {
   };
 
   return (
+    <>
     <div style={{ display: 'flex', gap: 16, height: 'calc(100vh - 56px - 48px)' }}>
       {/* Painel esquerdo */}
       <div style={{ width: 300, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -259,20 +260,20 @@ export default function Roteirizacao() {
         <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
       </div>
     </div>
-
-      {confAberta && (
-        <ConferenciaMaster
-          clientes={selArr}
-          veiculo={veiculoSel}
-          motorista={motoristaSel}
-          ajudantes={[]}
-          onFechar={() => setConfAberta(false)}
-          onGravar={(res) => {
-            setConfAberta(false);
-            setSelecionados({});
-            alert('Carga gravada! Viagem ' + (res.trip_number || res.id || ''));
-          }}
-        />
-      )}
+    {confAberta && (
+      <ConferenciaMaster
+        clientes={selArr}
+        veiculo={veiculoSel}
+        motorista={motoristaSel}
+        ajudantes={[]}
+        onFechar={() => setConfAberta(false)}
+        onGravar={(res) => {
+          setConfAberta(false);
+          setSelecionados({});
+          alert('Carga gravada! Viagem ' + (res.trip_number || res.id || ''));
+        }}
+      />
+    )}
+    </>
   );
 }
