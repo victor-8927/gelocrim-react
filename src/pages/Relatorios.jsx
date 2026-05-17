@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
-import { RefreshCw, Download, BarChart2, TrendingUp, Truck, Package, Target, Fuel } from 'lucide-react';
+import { RefreshCw, Download, BarChart2, TrendingUp, Truck, Target } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const TIPOS = [

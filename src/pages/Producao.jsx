@@ -16,7 +16,6 @@ export default function Producao() {
   const [loading, setLoading] = useState(true);
   const [modalPallet, setModalPallet] = useState(false);
   const [modalItem, setModalItem] = useState(false);
-  const [modalCarregado, setModalCarregado] = useState(false);
   const [formPallet, setFormPallet] = useState({ name: '', length: '', width: '', height: '', max_weight: '', cubagem: '', notes: '' });
   const [formItem, setFormItem] = useState({ name: '', weight_kg: '', length: '', width: '', height: '', cubagem: '', notes: '' });
   const [palletSel, setPalletSel] = useState('');
