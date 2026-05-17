@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import api from '../services/api';
 import { RefreshCw, Zap, Trash2, ChevronRight } from 'lucide-react';
 
@@ -33,7 +33,6 @@ export default function Roteirizacao() {
         api.get('/orders?status=pending&limit=500'),
         api.get('/clientes'),
         api.get('/vehicles'),
-        api.get('/drivers?type=driver').catch(() => []),
       ]);
 
       const ordersArr = Array.isArray(orders) ? orders : [];
@@ -50,7 +49,7 @@ export default function Roteirizacao() {
           clienteMap[key] = {
             id: `cli-${o.codparc || key}`,
             codparc: o.codparc,
-            name: (cli?.name || cli?.nome) || o.recipient_name || 'â€”',
+            name: (cli?.name || cli?.nome) || o.recipient_name || '—',
             address: (cli?.address || cli?.endereco) || o.address || '',
             lat: cli?.lat ? parseFloat(cli.lat) : null,
             lng: cli?.lng ? parseFloat(cli.lng) : null,
@@ -89,7 +88,7 @@ export default function Roteirizacao() {
         mapTypeId: 'roadmap',
         styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }]
       });
-      // Marker depÃ³sito
+      // Marker depósito
       new window.google.maps.Marker({
         position: DEPOSITO,
         map: mapObj.current,
@@ -164,7 +163,7 @@ export default function Roteirizacao() {
         deposito_lat: DEPOSITO.lat,
         deposito_lng: DEPOSITO.lng
       });
-      alert(`Rota otimizada! ${res.total_paradas} paradas Â· ${res.dist_total_km} km Â· Retorno: ${res.hora_retorno}`);
+      alert(`Rota otimizada! ${res.total_paradas} paradas · ${res.dist_total_km} km · Retorno: ${res.hora_retorno}`);
     } catch (e) {
       alert('Erro: ' + (e.detail || e.message));
     } finally {
@@ -231,7 +230,7 @@ export default function Roteirizacao() {
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#00FF88', flexShrink: 0 }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
-                <div style={{ fontSize: 10, color: '#90afd4' }}>{c.peso?.toFixed(0)} kg Â· {c.pedidos?.length} ped.</div>
+                <div style={{ fontSize: 10, color: '#90afd4' }}>{c.peso?.toFixed(0)} kg · {c.pedidos?.length} ped.</div>
               </div>
               <button onClick={() => setSelecionados(prev => { const n = {...prev}; delete n[c.id]; return n; })}
                 style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 2 }}>
@@ -261,5 +260,3 @@ export default function Roteirizacao() {
     </div>
   );
 }
-
-
