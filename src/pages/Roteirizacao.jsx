@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import api from '../services/api';
 import { RefreshCw, Zap, Trash2, ChevronRight } from 'lucide-react';
+import ConferenciaMaster from './ConferenciaMaster';
 
 const DEPOSITO = { lat: -3.093544, lng: -60.075812 };
 const CORES_ROTA = { '801': '#FF6B6B', '802': '#4ECDC4', '803': '#45B7D1', '804': '#96CEB4', '805': '#FFEAA7', '811': '#DDA0DD', '822': '#98D8C8' };
@@ -15,6 +16,10 @@ export default function Roteirizacao() {
   const [veiculos, setVeiculos] = useState([]);
   const [veiculo, setVeiculo] = useState('');
   const [loading, setLoading] = useState(false);
+  const [confAberta, setConfAberta] = useState(false);
+  const [veiculoSel, setVeiculoSel] = useState(null);
+  const [motoristaSel, setMotoristaSel] = useState(null);
+  const [motoristas, setMotoristas] = useState([]);
   const [carregando, setCarregando] = useState(false);
   const [filtroRota, setFiltroRota] = useState('');
   const [filtroBairro, setFiltroBairro] = useState('');
@@ -69,6 +74,11 @@ export default function Roteirizacao() {
       setClientes(items);
       setStatus(`${items.length} clientes com GPS`);
       setVeiculos(Array.isArray(veics) ? veics : []);
+      // Carregar motoristas também
+      try {
+        const drivs = await api.get('/drivers?type=driver');
+        setMotoristas(Array.isArray(drivs) ? drivs : []);
+      } catch(e) {}
       } catch (e) {
       setStatus('Erro ao carregar: ' + (e.detail || e.message));
     } finally {
@@ -150,25 +160,12 @@ export default function Roteirizacao() {
   const rotasFixas = ['801', '802', '803', '804', '805', '811', '822'];
   const bairros = [...new Set(clientes.map(c => c.bairro).filter(Boolean))].sort();
 
-  const roteirizar = async () => {
+  const roteirizar = () => {
     if (!selArr.length) return alert('Selecione ao menos um cliente');
     if (!veiculo) return alert('Selecione um veiculo');
-    setLoading(true);
-    try {
-      const codparcs = selArr.map(c => parseInt(c.codparc)).filter(Boolean);
-      const res = await api.post('/routes/otimizar', {
-        codparcs,
-        modo: 'otimizado',
-        hora_saida: '07:30',
-        deposito_lat: DEPOSITO.lat,
-        deposito_lng: DEPOSITO.lng
-      });
-      alert(`Rota otimizada! ${res.total_paradas} paradas · ${res.dist_total_km} km · Retorno: ${res.hora_retorno}`);
-    } catch (e) {
-      alert('Erro: ' + (e.detail || e.message));
-    } finally {
-      setLoading(false);
-    }
+    const veicObj = veiculos.find(v => v.id === veiculo);
+    setVeiculoSel(veicObj);
+    setConfAberta(true);
   };
 
   return (
@@ -242,6 +239,10 @@ export default function Roteirizacao() {
 
         {/* Veiculo e botao */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <select className="form-control" value={motoristaSel?.id || ''} onChange={e => setMotoristaSel(motoristas.find(m => m.id === e.target.value) || null)} style={{ marginBottom: 8 }}>
+            <option value="">Selecione o motorista</option>
+            {motoristas.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+          </select>
           <select className="form-control" value={veiculo} onChange={e => setVeiculo(e.target.value)}>
             <option value="">Selecione o veiculo</option>
             {veiculos.map(v => <option key={v.id} value={v.id}>{v.name || v.plate}</option>)}
@@ -258,5 +259,20 @@ export default function Roteirizacao() {
         <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
       </div>
     </div>
+
+      {confAberta && (
+        <ConferenciaMaster
+          clientes={selArr}
+          veiculo={veiculoSel}
+          motorista={motoristaSel}
+          ajudantes={[]}
+          onFechar={() => setConfAberta(false)}
+          onGravar={(res) => {
+            setConfAberta(false);
+            setSelecionados({});
+            alert('Carga gravada! Viagem ' + (res.trip_number || res.id || ''));
+          }}
+        />
+      )}
   );
 }
