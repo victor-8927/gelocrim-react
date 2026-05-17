@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import api from '../services/api';
+import { getOrders, getClients, getVehicles, getDrivers } from '../services/supabase';
 import { RefreshCw, Zap, ChevronRight } from 'lucide-react';
 import ConferenciaMaster from './ConferenciaMaster';
 
@@ -59,10 +60,10 @@ export default function Roteirizacao() {
     setStatus('Carregando clientes...');
     try {
       const [orders, clis, veics, drivs] = await Promise.all([
-        api.get('/orders?status=pending&limit=500'),
-        api.get('/clientes'),
-        api.get('/vehicles'),
-        api.get('/drivers'),
+        getOrders({ limit: 500, status: 'pending' }),
+        getClients({ limit: 1500 }),
+        getVehicles(),
+        getDrivers(),
       ]);
 
       const ordersArr = Array.isArray(orders) ? orders : [];
@@ -79,14 +80,14 @@ export default function Roteirizacao() {
           clienteMap[key] = {
             id: `cli-${o.codparc || key}`,
             codparc: o.codparc,
-            recipient_name: (cli?.name || cli?.nome) || o.recipient_name || '—',
-            address: (cli?.address || cli?.endereco) || o.address || '',
+            recipient_name: cli?.name || o.recipient_name || '—',
+            address: cli?.address || o.address || '',
             lat: cli?.lat ? parseFloat(cli.lat) : null,
             lng: cli?.lng ? parseFloat(cli.lng) : null,
-            rota: cli?.route || cli?.rota || '',
-            regiao: cli?.geo_zone || cli?.regiao || '',
-            bairro: cli?.district || cli?.bairro || '',
-            service_time: cli?.service_time || 20,
+            rota: cli?.route || '',
+            regiao: cli?.geo_zone || '',
+            bairro: cli?.district || '',
+            service_time: parseInt(cli?.service_time) || 20,
             order_ids: [],
             pedidos: [],
             weight_kg: 0,
@@ -110,8 +111,8 @@ export default function Roteirizacao() {
       setVeiculos(veicsArr);
 
       const drivsArr = Array.isArray(drivs) ? drivs : [];
-      setMotoristas(drivsArr.filter(d => d.type === 'driver' || d.tipo === 'motorista'));
-      setAjudantes(drivsArr.filter(d => d.type === 'assistant' || d.tipo === 'ajudante'));
+      setMotoristas(drivsArr.filter(d => d.type === 'driver'));
+      setAjudantes(drivsArr.filter(d => d.type === 'assistant'));
     } catch (e) {
       setStatus('Erro: ' + (e.detail || e.message));
     } finally {
@@ -323,7 +324,7 @@ export default function Roteirizacao() {
 
           <select className="form-control" style={{ marginBottom: 8, fontSize: 12 }} value={veiculo} onChange={e => setVeiculo(e.target.value)}>
             <option value="">-- Selecione o veículo --</option>
-            {veiculos.map(v => <option key={v.id} value={v.id}>{v.name || v.plate}</option>)}
+            {veiculos.map(v => <option key={v.id} value={v.id}>{v.vda ? `${v.vda} — ${v.plate}` : v.plate}</option>)}
           </select>
 
           <div style={{ fontSize: 11, color: '#90afd4', marginBottom: 6, fontWeight: 600 }}>EQUIPE DA ROTA</div>

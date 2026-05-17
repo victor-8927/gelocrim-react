@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../services/api';
+import { createRoute, supabase } from '../services/supabase';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 
 const DEPOSITO = { lat: -3.093544, lng: -60.075812 };
@@ -245,19 +246,44 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
     if (!confirmado) return;
     setGravando(true);
     try {
-      const orderIds = [];
-      ordem.forEach(o => {
-        if (o.order_ids?.length) o.order_ids.forEach(id => { if (id) orderIds.push(id); });
-        else if (o.id && !String(o.id).startsWith('cli-')) orderIds.push(o.id);
-      });
-      const res = await api.post('/routes', {
+      // 1. Criar rota no Supabase
+      const rota = await createRoute({
         vehicle_id: veiculo?.id,
         driver_id: motorista?.id,
+        assistant1_id: ajudantes?.[0]?.id || null,
+        assistant2_id: ajudantes?.[1]?.id || null,
         date: dataSaida,
         planned_start: horaInicio,
-        order_ids: orderIds
+        total_stops: ordem.length,
       });
-      if (onGravar) onGravar(res);
+
+      // 2. Criar stops no Supabase
+      if (rota?.id && ordem.length > 0) {
+        const stops = ordem.map((o, i) => ({
+          stop_id: `stp-${rota.id}-${i}`,
+          route_id: rota.id,
+          order_id: o.order_ids?.[0] || o.id || null,
+          sequence: i + 1,
+          recipient_name: o.recipient_name || o.name || '—',
+          address: o.address || '',
+          lat: parseFloat(o.lat) || null,
+          lng: parseFloat(o.lng) || null,
+          weight_kg: parseFloat(o.weight_kg) || 0,
+          status: 'pending',
+          eta: o._eta || null,
+          codparc: o.codparc || null,
+          created_at: new Date().toISOString(),
+        }));
+        await supabase.from('stops').insert(stops);
+
+        // 3. Atualizar status dos pedidos para 'routed'
+        const orderIds = ordem.flatMap(o => o.order_ids || []).filter(Boolean);
+        if (orderIds.length > 0) {
+          await supabase.from('orders').update({ status: 'routed', updated_at: new Date().toISOString() }).in('id', orderIds);
+        }
+      }
+
+      if (onGravar) onGravar(rota);
     } catch (e) {
       alert('Erro ao gravar: ' + (e.detail || e.message));
     } finally {
