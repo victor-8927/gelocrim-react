@@ -1,159 +1,131 @@
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
-import { RefreshCw, Plus, Edit, X } from 'lucide-react';
+import { RefreshCw, Search } from 'lucide-react';
 
 export default function Parceiros() {
-  const [parceiros, setParceiros] = useState([]);
+  const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [modal, setModal] = useState(false);
-  const [editando, setEditando] = useState(null);
   const [busca, setBusca] = useState('');
-  const [form, setForm] = useState({
-    name: '', cnpj: '', phone: '', email: '', address: '',
-    service_time: '', contact: '', notes: '', status: 'active'
-  });
+  const [filtroRegiao, setFiltroRegiao] = useState('');
+  const [filtroGps, setFiltroGps] = useState('');
 
   const load = () => {
     setLoading(true);
-    api.get('/parceiros').catch(() => [])
-      .then(d => setParceiros(Array.isArray(d) ? d : []))
+    api.get('/clientes')
+      .then(d => setClientes(Array.isArray(d) ? d : []))
+      .catch(() => setClientes([]))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, []); // eslint-disable-line
 
-  const filtrados = parceiros.filter(p =>
-    !busca || (p.name || '').toLowerCase().includes(busca.toLowerCase())
-  );
+  const filtrados = clientes.filter(c => {
+    const matchBusca = !busca ||
+      (c.name || c.nome || '').toLowerCase().includes(busca.toLowerCase()) ||
+      (c.codparc || '').toString().includes(busca);
+    const matchRegiao = !filtroRegiao || (c.geo_zone || c.regiao || '') === filtroRegiao;
+    const matchGps = !filtroGps ||
+      (filtroGps === 'com' && c.lat && c.lng) ||
+      (filtroGps === 'sem' && (!c.lat || !c.lng));
+    return matchBusca && matchRegiao && matchGps;
+  });
 
-  const abrir = (p = null) => {
-    if (p) {
-      setEditando(p.id);
-      setForm({ name: p.name || '', cnpj: p.cnpj || '', phone: p.phone || '', email: p.email || '', address: p.address || '', service_time: p.service_time || '', contact: p.contact || '', notes: p.notes || '', status: p.status || 'active' });
-    } else {
-      setEditando(null);
-      setForm({ name: '', cnpj: '', phone: '', email: '', address: '', service_time: '', contact: '', notes: '', status: 'active' });
-    }
-    setModal(true);
-  };
-
-  const salvar = async () => {
-    if (!form.name) return alert('Nome obrigatorio');
-    try {
-      if (editando) await api.patch(`/parceiros/${editando}`, form);
-      else await api.post('/parceiros', form);
-      setModal(false);
-      load();
-    } catch (e) { alert('Erro: ' + (e.detail || e.message)); }
-  };
+  const regioes = [...new Set(clientes.map(c => c.geo_zone || c.regiao).filter(Boolean))].sort();
+  const comGps = clientes.filter(c => c.lat && c.lng).length;
+  const ativos = clientes.filter(c => c.status === 'active' || !c.status).length;
 
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 700 }}>Parceiros</h1>
-          <p style={{ color: '#90afd4', fontSize: 13, marginTop: 4 }}>{parceiros.length} parceiros cadastrados</p>
+          <p style={{ color: '#90afd4', fontSize: 13, marginTop: 4 }}>Base de clientes com geolocalizacao</p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-secondary" onClick={load}><RefreshCw size={14} /> Atualizar</button>
-          <button className="btn btn-primary" onClick={() => abrir()}><Plus size={14} /> Novo Parceiro</button>
-        </div>
+        <button className="btn btn-secondary" onClick={load}><RefreshCw size={14} /> Atualizar</button>
       </div>
 
-      <div className="card" style={{ marginBottom: 16 }}>
-        <input className="form-control" placeholder="Buscar parceiro..." value={busca} onChange={e => setBusca(e.target.value)} />
-      </div>
-
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <table>
-          <thead>
-            <tr>
-              <th>Nome</th><th>CNPJ</th><th>Telefone</th><th>Email</th>
-              <th>T. Atend.</th><th>Contato</th><th>Status</th><th>Acoes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={8} style={{ textAlign: 'center', color: '#90afd4', padding: 40 }}>Carregando...</td></tr>
-            ) : filtrados.length === 0 ? (
-              <tr><td colSpan={8} style={{ textAlign: 'center', color: '#90afd4', padding: 40 }}>Nenhum parceiro encontrado</td></tr>
-            ) : filtrados.map(p => (
-              <tr key={p.id}>
-                <td style={{ fontWeight: 600 }}>{p.name}</td>
-                <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{p.cnpj || '—'}</td>
-                <td>{p.phone || '—'}</td>
-                <td style={{ fontSize: 12 }}>{p.email || '—'}</td>
-                <td>{p.service_time ? `${p.service_time} min` : '—'}</td>
-                <td>{p.contact || '—'}</td>
-                <td><span className={`badge ${p.status === 'active' ? 'active' : 'inactive'}`}>{p.status === 'active' ? 'Ativo' : 'Inativo'}</span></td>
-                <td>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button className="btn btn-secondary btn-sm" onClick={() => abrir(p)}><Edit size={12} /></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {modal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.7)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={e => e.target === e.currentTarget && setModal(false)}>
-          <div style={{ background: '#0f2040', border: '1px solid #1e3a5c', borderRadius: 16, width: 560, maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ padding: '16px 24px', borderBottom: '1px solid #1e3a5c', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: '#0f2040', zIndex: 1 }}>
-              <span style={{ fontWeight: 700 }}>{editando ? 'Editar Parceiro' : 'Novo Parceiro'}</span>
-              <button onClick={() => setModal(false)} style={{ background: 'none', border: 'none', color: '#90afd4', cursor: 'pointer' }}><X size={20} /></button>
-            </div>
-            <div style={{ padding: 24 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                <div className="form-group" style={{ gridColumn: '1/-1' }}>
-                  <label className="form-label">Nome *</label>
-                  <input className="form-control" value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">CNPJ</label>
-                  <input className="form-control" value={form.cnpj} onChange={e => setForm(f => ({...f, cnpj: e.target.value}))} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Telefone</label>
-                  <input className="form-control" value={form.phone} onChange={e => setForm(f => ({...f, phone: e.target.value}))} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Email</label>
-                  <input className="form-control" value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">T. Atendimento (min)</label>
-                  <input className="form-control" type="number" value={form.service_time} onChange={e => setForm(f => ({...f, service_time: e.target.value}))} />
-                </div>
-                <div className="form-group" style={{ gridColumn: '1/-1' }}>
-                  <label className="form-label">Endereco</label>
-                  <input className="form-control" value={form.address} onChange={e => setForm(f => ({...f, address: e.target.value}))} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Contato</label>
-                  <input className="form-control" value={form.contact} onChange={e => setForm(f => ({...f, contact: e.target.value}))} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Status</label>
-                  <select className="form-control" value={form.status} onChange={e => setForm(f => ({...f, status: e.target.value}))}>
-                    <option value="active">Ativo</option>
-                    <option value="inactive">Inativo</option>
-                  </select>
-                </div>
-                <div className="form-group" style={{ gridColumn: '1/-1' }}>
-                  <label className="form-label">Observacoes</label>
-                  <textarea className="form-control" rows={2} value={form.notes} onChange={e => setForm(f => ({...f, notes: e.target.value}))} />
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 12, borderTop: '1px solid #1e3a5c' }}>
-                <button className="btn btn-secondary" onClick={() => setModal(false)}>Cancelar</button>
-                <button className="btn btn-primary" onClick={salvar}>Salvar</button>
-              </div>
-            </div>
+      {/* KPIs */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+        {[
+          { label: 'Total Parceiros', value: clientes.length, color: '#64B4FF' },
+          { label: 'Com GPS', value: comGps, color: '#10b981' },
+          { label: 'Ativos', value: ativos, color: '#f97316' },
+          { label: 'Regioes', value: regioes.length, color: '#a78bfa' },
+        ].map(k => (
+          <div key={k.label} className="card" style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 24, fontWeight: 700, color: k.color }}>{k.value}</div>
+            <div style={{ fontSize: 12, color: '#90afd4' }}>{k.label}</div>
           </div>
+        ))}
+      </div>
+
+      {/* Filtros */}
+      <div className="card" style={{ marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+          <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#90afd4' }} />
+          <input className="form-control" style={{ paddingLeft: 32 }} placeholder="Buscar por nome ou codigo..." value={busca} onChange={e => setBusca(e.target.value)} />
         </div>
-      )}
+        <select className="form-control" style={{ width: 180 }} value={filtroRegiao} onChange={e => setFiltroRegiao(e.target.value)}>
+          <option value="">Todas as regioes</option>
+          {regioes.map(r => <option key={r} value={r}>{r}</option>)}
+        </select>
+        <select className="form-control" style={{ width: 140 }} value={filtroGps} onChange={e => setFiltroGps(e.target.value)}>
+          <option value="">Todos</option>
+          <option value="com">Com GPS</option>
+          <option value="sem">Sem GPS</option>
+        </select>
+        <button className="btn btn-secondary btn-sm" onClick={() => { setBusca(''); setFiltroRegiao(''); setFiltroGps(''); }}>Limpar</button>
+        <span style={{ color: '#90afd4', fontSize: 12, whiteSpace: 'nowrap' }}>{filtrados.length} parceiros</span>
+      </div>
+
+      {/* Tabela */}
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table>
+            <thead>
+              <tr>
+                <th>Cod.</th>
+                <th>Nome</th>
+                <th>Endereco</th>
+                <th>Bairro</th>
+                <th>Cidade</th>
+                <th>Regiao</th>
+                <th>GPS</th>
+                <th>Telefone</th>
+                <th>T. Atend.</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={10} style={{ textAlign: 'center', color: '#90afd4', padding: 40 }}>Carregando...</td></tr>
+              ) : filtrados.length === 0 ? (
+                <tr><td colSpan={10} style={{ textAlign: 'center', color: '#90afd4', padding: 40 }}>Clique em Atualizar para carregar</td></tr>
+              ) : filtrados.slice(0, 200).map((c, i) => (
+                <tr key={c.id || i}>
+                  <td style={{ fontFamily: 'monospace', fontSize: 12, color: '#64B4FF' }}>{c.codparc || '—'}</td>
+                  <td style={{ fontWeight: 600 }}>{c.name || c.nome || '—'}</td>
+                  <td style={{ color: '#90afd4', fontSize: 12, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.address || c.endereco || '—'}</td>
+                  <td style={{ fontSize: 12 }}>{c.district || c.bairro || '—'}</td>
+                  <td style={{ fontSize: 12 }}>{c.city || 'Manaus'}</td>
+                  <td><span style={{ fontSize: 11, color: '#a78bfa' }}>{c.geo_zone || c.regiao || c.route || '—'}</span></td>
+                  <td style={{ color: c.lat && c.lng ? '#10b981' : '#ef4444', fontSize: 12 }}>
+                    {c.lat && c.lng ? `${parseFloat(c.lat).toFixed(4)}, ${parseFloat(c.lng).toFixed(4)}` : '—'}
+                  </td>
+                  <td style={{ fontSize: 12 }}>{c.phone || c.telefone || '—'}</td>
+                  <td style={{ fontSize: 12 }}>{c.service_time ? `${c.service_time} min` : '—'}</td>
+                  <td><span className={`badge ${c.status === 'inactive' ? 'inactive' : 'active'}`}>{c.status === 'inactive' ? 'Inativo' : 'Ativo'}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filtrados.length > 200 && (
+            <div style={{ padding: '12px 16px', color: '#90afd4', fontSize: 12, borderTop: '1px solid #1e3a5c' }}>
+              Mostrando 200 de {filtrados.length} parceiros. Use os filtros para refinar.
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
