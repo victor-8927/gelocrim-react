@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import api from '../services/api';
-import { RefreshCw, Zap, MapPin, Trash2, ChevronRight } from 'lucide-react';
+import { RefreshCw, Zap, Trash2, ChevronRight } from 'lucide-react';
 
 const DEPOSITO = { lat: -3.093544, lng: -60.075812 };
 const CORES_ROTA = { '801': '#FF6B6B', '802': '#4ECDC4', '803': '#45B7D1', '804': '#96CEB4', '805': '#FFEAA7', '811': '#DDA0DD', '822': '#98D8C8' };
@@ -13,7 +13,6 @@ export default function Roteirizacao() {
   const [clientes, setClientes] = useState([]);
   const [selecionados, setSelecionados] = useState({});
   const [veiculos, setVeiculos] = useState([]);
-  const [motoristas, setMotoristas] = useState([]);
   const [veiculo, setVeiculo] = useState('');
   const [loading, setLoading] = useState(false);
   const [carregando, setCarregando] = useState(false);
@@ -71,8 +70,7 @@ export default function Roteirizacao() {
       setClientes(items);
       setStatus(`${items.length} clientes com GPS`);
       setVeiculos(Array.isArray(veics) ? veics : []);
-      setMotoristas(Array.isArray(drivs) ? drivs : []);
-    } catch (e) {
+      } catch (e) {
       setStatus('Erro ao carregar: ' + (e.detail || e.message));
     } finally {
       setCarregando(false);

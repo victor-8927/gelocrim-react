@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
-import { RefreshCw, Plus, Edit, Trash2, X, Handshake } from 'lucide-react';
+import { RefreshCw, Plus, Edit, X } from 'lucide-react';
 
 export default function Parceiros() {
   const [parceiros, setParceiros] = useState([]);
