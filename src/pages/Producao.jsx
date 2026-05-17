@@ -34,11 +34,11 @@ export default function Producao() {
     setEditPallet(p);
     setFormPallet(p ? {
       name: p.name || '',
-      length: p.length || p.box_length || '',
-      width: p.width || p.box_width || '',
-      height: p.height || p.box_height || '',
-      max_weight: p.max_weight || p.capacity_kg || '',
-      cubagem: p.cubagem || '',
+      length: p.length || '',
+      width: p.width || '',
+      height: p.height || '',
+      max_weight: p.max_weight || '',
+      cubagem: p.volume || '',
       notes: p.notes || ''
     } : { name: '', length: '', width: '', height: '', max_weight: '', cubagem: '', notes: '' });
     setModalPallet(true);
@@ -47,13 +47,13 @@ export default function Producao() {
   const abrirModalItem = (i = null) => {
     setEditItem(i);
     setFormItem(i ? {
-      name: i.name || i.nome || '',
-      weight_kg: i.weight_kg || i.peso_kg || '',
+      name: i.name || '',
+      weight_kg: i.weight || '',
       length: i.length || '',
       width: i.width || '',
       height: i.height || '',
-      cubagem: i.cubagem || '',
-      notes: i.notes || i.observacao || ''
+      cubagem: i.length && i.width && i.height ? (i.length*i.width*i.height).toFixed(4) : '',
+      notes: i.notes || ''
     } : { name: '', weight_kg: '', length: '', width: '', height: '', cubagem: '', notes: '' });
     setModalItem(true);
   };
@@ -93,24 +93,20 @@ export default function Producao() {
   const palletObj = pallets.find(p => p.id === palletSel);
   const itemObj = itens.find(i => i.id === itemSel);
 
-  const calcUnidades = () => {
-    if (!palletObj || !itemObj) return 0;
-    const volPallet = parseFloat(palletObj.cubagem) || 0;
-    const volItem = parseFloat(itemObj.cubagem) || 0;
-    if (volItem <= 0) return 0;
-    return Math.floor(volPallet / volItem);
-  };
-
-  const unidades = calcUnidades();
-  const pesoPallet = parseFloat(palletObj?.max_weight || palletObj?.capacity_kg || 0);
-  const pesoItem = parseFloat(itemObj?.weight || itemObj?.weight_kg || itemObj?.peso_kg || 0);
+  const unidades = parseInt(itemObj?.units_per_pallet || 0);
+  const pesoPallet = parseFloat(palletObj?.max_weight || 0);
+  const pesoItem = parseFloat(itemObj?.weight || 0);
   const pesoTotal = pesoPallet + (unidades * pesoItem);
-  const volPallet = parseFloat(palletObj?.cubagem || 0);
-  const volItem = parseFloat(itemObj?.cubagem || 0);
+  const lP = parseFloat(palletObj?.length || 0);
+  const wP = parseFloat(palletObj?.width || 0);
+  const hP = parseFloat(palletObj?.height || 0);
+  const volPallet = lP * wP * hP;
+  const lI = parseFloat(itemObj?.length || 0);
+  const wI = parseFloat(itemObj?.width || 0);
+  const hI = parseFloat(itemObj?.height || 0);
+  const volItem = lI * wI * hI;
   const volTotal = volPallet + (unidades * volItem);
-  const altPallet = parseFloat(palletObj?.height || palletObj?.box_height || 0);
-  const altItem = parseFloat(itemObj?.height || 0);
-  const altTotal = altPallet + (unidades > 0 ? altItem : 0);
+  const altTotal = hP + (unidades > 0 ? hI : 0);
 
   const tabStyle = (t) => ({
     padding: '8px 20px', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13,
@@ -163,14 +159,19 @@ export default function Producao() {
                 <tr><td colSpan={8} style={{ textAlign: 'center', color: '#90afd4', padding: 30 }}>Nenhum pallet cadastrado</td></tr>
               ) : pallets.map(p => (
                 <tr key={p.id}>
-                  <td style={{ fontWeight: 600 }}>{getField(p, 'name', 'nome')}</td>
-                  <td>{getField(p, 'length', 'box_length', 'comprimento')}</td>
-                  <td>{getField(p, 'width', 'box_width', 'largura')}</td>
-                  <td>{getField(p, 'height', 'box_height', 'altura')}</td>
-                  <td style={{ color: '#64B4FF' }}>{getField(p, 'cubagem')} m³</td>
-                  <td style={{ color: '#f59e0b' }}>{getField(p, 'max_weight', 'capacity_kg', 'peso_max')} kg</td>
+                  <td style={{ fontWeight: 600 }}>{p.name || '—'}</td>
+                  <td>{p.length || '—'}</td>
+                  <td>{p.width || '—'}</td>
+                  <td>{p.height || '—'}</td>
+                  <td style={{ color: '#64B4FF' }}>{p.volume ? `${p.volume} m³` : p.length && p.width && p.height ? `${(p.length*p.width*p.height).toFixed(4)} m³` : '—'}</td>
+                  <td style={{ color: '#f59e0b' }}>{p.max_weight ? `${p.max_weight} kg` : '—'}</td>
                   <td><span className="badge active">Ativo</span></td>
-                  <td><button className="btn btn-secondary btn-sm" onClick={() => abrirModalPallet(p)}><Edit size={12} /> Editar</button></td>
+                  <td>
+                    <div style={{display:'flex',gap:6}}>
+                      <button className="btn btn-secondary btn-sm" onClick={() => abrirModalPallet(p)}><Edit size={12} /> Editar</button>
+                      <button onClick={() => { if(window.confirm('Excluir?')) import('../services/supabase').then(m=>m.supabase.from('pallets').delete().eq('id',p.id)).then(load); }} style={{background:'rgba(239,68,68,.15)',border:'1px solid #ef4444',color:'#ef4444',borderRadius:6,padding:'4px 8px',cursor:'pointer',fontSize:12}}>🗑️</button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -194,18 +195,20 @@ export default function Producao() {
               ) : itens.length === 0 ? (
                 <tr><td colSpan={6} style={{ textAlign: 'center', color: '#90afd4', padding: 30 }}>Nenhum item cadastrado</td></tr>
               ) : itens.map(i => {
-                const l = getField(i, 'length', 'comprimento');
-                const w = getField(i, 'width', 'largura');
-                const h = getField(i, 'height', 'altura');
-                const dims = l !== '—' && w !== '—' && h !== '—' ? `${l}x${w}x${h} m` : '—';
+                const dims = i.length && i.width && i.height ? `${i.length}x${i.width}x${i.height} m` : '—';
                 return (
                   <tr key={i.id}>
-                    <td style={{ fontWeight: 600 }}>{getField(i, 'name', 'nome')}</td>
-                    <td style={{ color: '#f59e0b' }}>{getField(i, 'weight_kg', 'peso_kg', 'peso')} kg</td>
+                    <td style={{ fontWeight: 600 }}>{i.name || '—'}</td>
+                    <td style={{ color: '#f59e0b' }}>{i.weight ? `${i.weight} kg` : '—'}</td>
                     <td style={{ fontSize: 12, color: '#90afd4' }}>{dims}</td>
-                    <td style={{ color: '#64B4FF' }}>{getField(i, 'cubagem')} m³</td>
-                    <td style={{ fontSize: 12, color: '#90afd4' }}>{getField(i, 'notes', 'observacao')}</td>
-                    <td><button className="btn btn-secondary btn-sm" onClick={() => abrirModalItem(i)}><Edit size={12} /> Editar</button></td>
+                    <td style={{ color: '#64B4FF' }}>{i.length && i.width && i.height ? `${(i.length*i.width*i.height).toFixed(4)} m³` : '—'}</td>
+                    <td style={{ fontSize: 12, color: '#90afd4' }}>{i.notes || '—'}</td>
+                    <td>
+                      <div style={{display:'flex',gap:6}}>
+                        <button className="btn btn-secondary btn-sm" onClick={() => abrirModalItem(i)}><Edit size={12} /> Editar</button>
+                        <button onClick={() => { if(window.confirm('Excluir?')) import('../services/supabase').then(m=>m.supabase.from('production_items').delete().eq('id',i.id)).then(load); }} style={{background:'rgba(239,68,68,.15)',border:'1px solid #ef4444',color:'#ef4444',borderRadius:6,padding:'4px 8px',cursor:'pointer',fontSize:12}}>🗑️</button>
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
@@ -277,9 +280,9 @@ export default function Producao() {
                   </div>
                 </div>
                 <div style={{ fontSize: 11, color: '#90afd4', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <span>📦 Pallet: {getField(palletObj, 'length', 'box_length')}x{getField(palletObj, 'width', 'box_width')}x{getField(palletObj, 'height', 'box_height')} m</span>
-                  <span>🧊 Item: {getField(itemObj, 'length')}x{getField(itemObj, 'width')}x{getField(itemObj, 'height')} m</span>
-                  <span>⚖️ Peso unit.: {getField(itemObj, 'weight_kg', 'peso_kg')} kg</span>
+                  <span>📦 Pallet: {parseFloat(palletObj?.length||0)}x{parseFloat(palletObj?.width||0)}x{parseFloat(palletObj?.height||0)} m</span>
+                  <span>🧊 Item: {parseFloat(itemObj?.length||0)}x{parseFloat(itemObj?.width||0)}x{parseFloat(itemObj?.height||0)} m</span>
+                  <span>⚖️ Peso unit.: {parseFloat(itemObj?.weight||0)} kg</span>
                   <span>📐 Alt total: {altTotal.toFixed(2)} m</span>
                 </div>
               </div>
