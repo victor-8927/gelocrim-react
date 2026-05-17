@@ -2,13 +2,14 @@ import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 import { RefreshCw, Plus, X } from 'lucide-react';
 
-const DIAS = ['', 'Domingo', 'Segunda', 'Terca', 'Quarta', 'Quinta', 'Sexta', 'Sabado'];
+const DIAS = [{ val: '', label: '— Sem folga fixa —' }, { val: 'domingo', label: 'Domingo' }, { val: 'segunda', label: 'Segunda-feira' }, { val: 'terca', label: 'Terca-feira' }, { val: 'quarta', label: 'Quarta-feira' }, { val: 'quinta', label: 'Quinta-feira' }, { val: 'sexta', label: 'Sexta-feira' }, { val: 'sabado', label: 'Sabado' }];
 
 const FORM_VAZIO = {
   type: 'driver', name: '', cpf: '', phone: '', admission_date: '',
   license_number: '', license_category: '', fixed_vehicle: '',
   daily_cost: '', work_hours: '', lunch_break: '', day_off: '',
-  notes: '', status: 'active'
+  notes: '', status: 'active',
+  foto_funcionario: '', foto_cnh: ''
 };
 
 export default function Equipe() {
@@ -53,7 +54,9 @@ export default function Equipe() {
       lunch_break: d.lunch_break || '',
       day_off: d.day_off || '',
       notes: d.notes || '',
-      status: d.status || 'active'
+      status: d.status || 'active',
+      foto_funcionario: d.foto_funcionario || '',
+      foto_cnh: d.foto_cnh || ''
     });
     setModal(true);
   };
@@ -215,6 +218,54 @@ export default function Equipe() {
                 </div>
               </div>
 
+              {/* Fotos */}
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#90afd4', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 10 }}>📷 FOTOS</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="form-group">
+                    <label className="form-label">Foto do Funcionário</label>
+                    <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 16, background: '#0a1628', border: '2px dashed #1e3a5c', borderRadius: 10, cursor: 'pointer', minHeight: 90 }}>
+                      {form.foto_funcionario ? (
+                        <img src={form.foto_funcionario} alt="foto" style={{ width: 60, height: 60, borderRadius: '50%', objectFit: 'cover' }} />
+                      ) : (
+                        <>
+                          <span style={{ fontSize: 28 }}>👤</span>
+                          <span style={{ fontSize: 11, color: '#90afd4' }}>Clique para adicionar foto</span>
+                        </>
+                      )}
+                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = ev => setForm(p => ({ ...p, foto_funcionario: ev.target.result }));
+                        reader.readAsDataURL(file);
+                      }} />
+                    </label>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Foto da CNH</label>
+                    <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 16, background: '#0a1628', border: '2px dashed #1e3a5c', borderRadius: 10, cursor: 'pointer', minHeight: 90 }}>
+                      {form.foto_cnh ? (
+                        <span style={{ fontSize: 11, color: '#10b981' }}>✅ Arquivo carregado</span>
+                      ) : (
+                        <>
+                          <span style={{ fontSize: 28 }}>🪪</span>
+                          <span style={{ fontSize: 11, color: '#90afd4' }}>Clique para adicionar CNH</span>
+                          <span style={{ fontSize: 10, color: '#90afd4' }}>(PDF ou imagem)</span>
+                        </>
+                      )}
+                      <input type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = ev => setForm(p => ({ ...p, foto_cnh: ev.target.result }));
+                        reader.readAsDataURL(file);
+                      }} />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
               {/* Custo operacional */}
               <div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: '#90afd4', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 10 }}>💰 CUSTO OPERACIONAL</div>
@@ -246,7 +297,7 @@ export default function Equipe() {
                   <div className="form-group" style={{ gridColumn: '1/-1' }}>
                     <label className="form-label">Dia de Folga</label>
                     <select className="form-control" value={form.day_off} onChange={f('day_off')}>
-                      {DIAS.map((d, i) => <option key={i} value={d.toLowerCase()}>{i === 0 ? '— Sem folga fixa —' : d + '-feira'}</option>)}
+                      {DIAS.map(d => <option key={d.val} value={d.val}>{d.label}</option>)}
                     </select>
                   </div>
                 </div>
