@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { getOrders } from '../services/supabase';
+import { getOrders, supabase } from '../services/supabase';
+import * as XLSX from 'xlsx';
 import { RefreshCw, Search, X } from 'lucide-react';
 
 const STATUS_LABELS = {
@@ -18,6 +19,89 @@ function ModalPedido({ pedido, onFechar, onRoteirizar }) {
   if (!pedido) return null;
   const topLabel = TOP_LABELS[pedido.order_type] || pedido.order_type || 'Venda';
   const topCor = TOP_CORES[pedido.order_type] || '#64B4FF';
+
+  // ─── IMPORTAÇÃO CSV ───────────────────────────────────────────────────────
+  const processarCSV = async (file, tipo) => {
+    setImportando(true);
+    setImportLog(['Lendo arquivo...']);
+    try {
+      const isExcel = file.name.match(/\.xlsx?$/i);
+      let headers = [];
+      let rows = [];
+
+      if (isExcel) {
+        const buffer = await file.arrayBuffer();
+        const wb = XLSX.read(buffer, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        headers = data[0].map(h => String(h).trim().toLowerCase());
+        rows = data.slice(1).map(row => row.map(c => String(c || '').trim()));
+      } else {
+        const text = await file.text();
+        const lines = text.split('\n').filter(l => l.trim());
+        const sep = lines[0].includes(';') ? ';' : ',';
+        headers = lines[0].split(sep).map(h => h.trim().toLowerCase().replace(/"/g, ''));
+        rows = lines.slice(1).map(l => l.split(sep).map(c => c.trim().replace(/"/g, '')));
+      }
+      
+      setImportLog(prev => [...prev, `${rows.length} linhas encontradas`]);
+      
+      const pedidos = [];
+      rows.forEach((row, i) => {
+        const obj = {};
+        headers.forEach((h, j) => { obj[h] = Array.isArray(row) ? (row[j] || '') : (row.split(';')[j] || ''); });
+        
+        // Mapeamento flexível de campos do Sankhya
+        const pedido = {
+          id: `ord-${Date.now()}-${i}`,
+          external_id: obj.nunota || obj.numnota || obj.pedido || obj.nota || `IMP-${Date.now()}-${i}`,
+          recipient_name: obj.nomeparc || obj.cliente || obj.nome || obj.razao || '—',
+          address: obj.endereco || obj.logradouro || obj.end || '',
+          codparc: parseInt(obj.codparc || obj.codigo || 0) || null,
+          weight_kg: parseFloat((obj.peso || obj.pesobruto || '0').replace(',', '.')) || 0,
+          volume_m3: parseFloat((obj.volume || obj.vol || '0').replace(',', '.')) || 0,
+          total_value: parseFloat((obj.vlrnota || obj.valor || obj.total || '0').replace(',', '.')) || 0,
+          order_type: obj.top || obj.tipoop || obj.tipo || '1000',
+          status: 'pending',
+          delivery_date: new Date().toISOString().slice(0, 10),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        
+        if (pedido.external_id) pedidos.push(pedido);
+      });
+
+      setImportLog(prev => [...prev, `${pedidos.length} pedidos válidos`]);
+
+      // Inserir em lotes de 50
+      let inseridos = 0;
+      for (let i = 0; i < pedidos.length; i += 50) {
+        const lote = pedidos.slice(i, i + 50);
+        const { error } = await supabase.from('orders').upsert(lote, { onConflict: 'external_id' });
+        if (error) { setImportLog(prev => [...prev, `⚠️ Erro lote ${i}: ${error.message}`]); }
+        else { inseridos += lote.length; setImportLog(prev => [...prev, `✅ ${inseridos}/${pedidos.length} inseridos`]); }
+      }
+
+      setImportLog(prev => [...prev, `🎉 Importação concluída! ${inseridos} pedidos importados.`]);
+      load();
+    } catch (e) {
+      setImportLog(prev => [...prev, `❌ Erro: ${e.message}`]);
+    } finally {
+      setImportando(false);
+    }
+  };
+
+  const abrirImport = (tipo) => {
+    setModalImport(tipo);
+    setImportLog([]);
+  };
+
+  const handleFileSelect = (e, tipo) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    processarCSV(file, tipo);
+    e.target.value = '';
+  };
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.75)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
@@ -111,6 +195,9 @@ export default function Pedidos() {
   const [limite, setLimite] = useState(100);
   const [selecionados, setSelecionados] = useState({});
   const [modalPedido, setModalPedido] = useState(null);
+  const [importando, setImportando] = useState(false);
+  const [modalImport, setModalImport] = useState(null); // 'csv' | 'itens' | 'ti'
+  const [importLog, setImportLog] = useState([]);
 
   const load = () => {
     setLoading(true);
@@ -167,6 +254,89 @@ export default function Pedidos() {
     else { const n = {}; filtrados.forEach(p => { n[p.id] = true; }); setSelecionados(n); }
   };
 
+  // ─── IMPORTAÇÃO CSV ───────────────────────────────────────────────────────
+  const processarCSV = async (file, tipo) => {
+    setImportando(true);
+    setImportLog(['Lendo arquivo...']);
+    try {
+      const isExcel = file.name.match(/\.xlsx?$/i);
+      let headers = [];
+      let rows = [];
+
+      if (isExcel) {
+        const buffer = await file.arrayBuffer();
+        const wb = XLSX.read(buffer, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        headers = data[0].map(h => String(h).trim().toLowerCase());
+        rows = data.slice(1).map(row => row.map(c => String(c || '').trim()));
+      } else {
+        const text = await file.text();
+        const lines = text.split('\n').filter(l => l.trim());
+        const sep = lines[0].includes(';') ? ';' : ',';
+        headers = lines[0].split(sep).map(h => h.trim().toLowerCase().replace(/"/g, ''));
+        rows = lines.slice(1).map(l => l.split(sep).map(c => c.trim().replace(/"/g, '')));
+      }
+      
+      setImportLog(prev => [...prev, `${rows.length} linhas encontradas`]);
+      
+      const pedidos = [];
+      rows.forEach((row, i) => {
+        const obj = {};
+        headers.forEach((h, j) => { obj[h] = Array.isArray(row) ? (row[j] || '') : (row.split(';')[j] || ''); });
+        
+        // Mapeamento flexível de campos do Sankhya
+        const pedido = {
+          id: `ord-${Date.now()}-${i}`,
+          external_id: obj.nunota || obj.numnota || obj.pedido || obj.nota || `IMP-${Date.now()}-${i}`,
+          recipient_name: obj.nomeparc || obj.cliente || obj.nome || obj.razao || '—',
+          address: obj.endereco || obj.logradouro || obj.end || '',
+          codparc: parseInt(obj.codparc || obj.codigo || 0) || null,
+          weight_kg: parseFloat((obj.peso || obj.pesobruto || '0').replace(',', '.')) || 0,
+          volume_m3: parseFloat((obj.volume || obj.vol || '0').replace(',', '.')) || 0,
+          total_value: parseFloat((obj.vlrnota || obj.valor || obj.total || '0').replace(',', '.')) || 0,
+          order_type: obj.top || obj.tipoop || obj.tipo || '1000',
+          status: 'pending',
+          delivery_date: new Date().toISOString().slice(0, 10),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        
+        if (pedido.external_id) pedidos.push(pedido);
+      });
+
+      setImportLog(prev => [...prev, `${pedidos.length} pedidos válidos`]);
+
+      // Inserir em lotes de 50
+      let inseridos = 0;
+      for (let i = 0; i < pedidos.length; i += 50) {
+        const lote = pedidos.slice(i, i + 50);
+        const { error } = await supabase.from('orders').upsert(lote, { onConflict: 'external_id' });
+        if (error) { setImportLog(prev => [...prev, `⚠️ Erro lote ${i}: ${error.message}`]); }
+        else { inseridos += lote.length; setImportLog(prev => [...prev, `✅ ${inseridos}/${pedidos.length} inseridos`]); }
+      }
+
+      setImportLog(prev => [...prev, `🎉 Importação concluída! ${inseridos} pedidos importados.`]);
+      load();
+    } catch (e) {
+      setImportLog(prev => [...prev, `❌ Erro: ${e.message}`]);
+    } finally {
+      setImportando(false);
+    }
+  };
+
+  const abrirImport = (tipo) => {
+    setModalImport(tipo);
+    setImportLog([]);
+  };
+
+  const handleFileSelect = (e, tipo) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    processarCSV(file, tipo);
+    e.target.value = '';
+  };
+
   return (
     <div>
       {/* Header */}
@@ -177,10 +347,19 @@ export default function Pedidos() {
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <button className="btn btn-secondary" onClick={load}><RefreshCw size={14} /> Atualizar</button>
-          <button className="btn btn-secondary" style={{ fontSize: 12 }}>📥 Importar CSV</button>
-          <button className="btn btn-secondary" style={{ fontSize: 12 }}>📦 Importar Itens</button>
-          <button className="btn btn-secondary" style={{ fontSize: 12 }}>📋 Importar Planilha TI</button>
-          <button className="btn btn-secondary" style={{ fontSize: 12 }}>🔄 Sincronizar Sankhya</button>
+          <label className="btn btn-secondary" style={{ fontSize: 12, cursor: 'pointer' }}>
+            📥 Importar CSV
+            <input type="file" accept=".csv,.txt,.xlsx,.xls" style={{ display: 'none' }} onChange={e => handleFileSelect(e, 'csv')} />
+          </label>
+          <label className="btn btn-secondary" style={{ fontSize: 12, cursor: 'pointer' }}>
+            📦 Importar Itens
+            <input type="file" accept=".csv,.txt,.xlsx,.xls" style={{ display: 'none' }} onChange={e => handleFileSelect(e, 'itens')} />
+          </label>
+          <label className="btn btn-secondary" style={{ fontSize: 12, cursor: 'pointer' }}>
+            📋 Importar Planilha TI
+            <input type="file" accept=".csv,.txt,.xls,.xlsx" style={{ display: 'none' }} onChange={e => handleFileSelect(e, 'ti')} />
+          </label>
+          <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={() => abrirImport('status')}>🔄 Sincronizar Sankhya</button>
           <button className="btn btn-primary" style={{ fontSize: 12 }}>+ Novo Pedido</button>
         </div>
       </div>
@@ -272,7 +451,90 @@ export default function Pedidos() {
               ) : filtrados.map(p => {
                 const topLabel = TOP_LABELS[p.order_type] || p.order_type || '—';
                 const topCor = TOP_CORES[p.order_type] || '#90afd4';
-                return (
+                // ─── IMPORTAÇÃO CSV ───────────────────────────────────────────────────────
+  const processarCSV = async (file, tipo) => {
+    setImportando(true);
+    setImportLog(['Lendo arquivo...']);
+    try {
+      const isExcel = file.name.match(/\.xlsx?$/i);
+      let headers = [];
+      let rows = [];
+
+      if (isExcel) {
+        const buffer = await file.arrayBuffer();
+        const wb = XLSX.read(buffer, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        headers = data[0].map(h => String(h).trim().toLowerCase());
+        rows = data.slice(1).map(row => row.map(c => String(c || '').trim()));
+      } else {
+        const text = await file.text();
+        const lines = text.split('\n').filter(l => l.trim());
+        const sep = lines[0].includes(';') ? ';' : ',';
+        headers = lines[0].split(sep).map(h => h.trim().toLowerCase().replace(/"/g, ''));
+        rows = lines.slice(1).map(l => l.split(sep).map(c => c.trim().replace(/"/g, '')));
+      }
+      
+      setImportLog(prev => [...prev, `${rows.length} linhas encontradas`]);
+      
+      const pedidos = [];
+      rows.forEach((row, i) => {
+        const obj = {};
+        headers.forEach((h, j) => { obj[h] = Array.isArray(row) ? (row[j] || '') : (row.split(';')[j] || ''); });
+        
+        // Mapeamento flexível de campos do Sankhya
+        const pedido = {
+          id: `ord-${Date.now()}-${i}`,
+          external_id: obj.nunota || obj.numnota || obj.pedido || obj.nota || `IMP-${Date.now()}-${i}`,
+          recipient_name: obj.nomeparc || obj.cliente || obj.nome || obj.razao || '—',
+          address: obj.endereco || obj.logradouro || obj.end || '',
+          codparc: parseInt(obj.codparc || obj.codigo || 0) || null,
+          weight_kg: parseFloat((obj.peso || obj.pesobruto || '0').replace(',', '.')) || 0,
+          volume_m3: parseFloat((obj.volume || obj.vol || '0').replace(',', '.')) || 0,
+          total_value: parseFloat((obj.vlrnota || obj.valor || obj.total || '0').replace(',', '.')) || 0,
+          order_type: obj.top || obj.tipoop || obj.tipo || '1000',
+          status: 'pending',
+          delivery_date: new Date().toISOString().slice(0, 10),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        
+        if (pedido.external_id) pedidos.push(pedido);
+      });
+
+      setImportLog(prev => [...prev, `${pedidos.length} pedidos válidos`]);
+
+      // Inserir em lotes de 50
+      let inseridos = 0;
+      for (let i = 0; i < pedidos.length; i += 50) {
+        const lote = pedidos.slice(i, i + 50);
+        const { error } = await supabase.from('orders').upsert(lote, { onConflict: 'external_id' });
+        if (error) { setImportLog(prev => [...prev, `⚠️ Erro lote ${i}: ${error.message}`]); }
+        else { inseridos += lote.length; setImportLog(prev => [...prev, `✅ ${inseridos}/${pedidos.length} inseridos`]); }
+      }
+
+      setImportLog(prev => [...prev, `🎉 Importação concluída! ${inseridos} pedidos importados.`]);
+      load();
+    } catch (e) {
+      setImportLog(prev => [...prev, `❌ Erro: ${e.message}`]);
+    } finally {
+      setImportando(false);
+    }
+  };
+
+  const abrirImport = (tipo) => {
+    setModalImport(tipo);
+    setImportLog([]);
+  };
+
+  const handleFileSelect = (e, tipo) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    processarCSV(file, tipo);
+    e.target.value = '';
+  };
+
+  return (
                   <tr key={p.id} style={{ background: selecionados[p.id] ? 'rgba(232,82,26,.05)' : '' }}>
                     <td style={{ textAlign: 'center' }}>
                       <input type="checkbox" checked={!!selecionados[p.id]} onChange={() => toggleSel(p.id)}
@@ -299,6 +561,26 @@ export default function Pedidos() {
       </div>
 
       {modalPedido && <ModalPedido pedido={modalPedido} onFechar={() => setModalPedido(null)} />}
+
+      {/* Modal de importação */}
+      {(importando || importLog.length > 0) && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.75)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: '#0f2040', border: '1px solid #1e3a5c', borderRadius: 16, width: 480, padding: 24 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>📥 Importando Pedidos</div>
+            <div style={{ background: '#0a1628', borderRadius: 8, padding: 12, maxHeight: 200, overflowY: 'auto', fontFamily: 'monospace', fontSize: 12 }}>
+              {importLog.map((log, i) => (
+                <div key={i} style={{ color: log.startsWith('❌') ? '#ef4444' : log.startsWith('⚠️') ? '#f59e0b' : log.startsWith('✅') || log.startsWith('🎉') ? '#10b981' : '#90afd4', marginBottom: 4 }}>{log}</div>
+              ))}
+              {importando && <div style={{ color: '#64B4FF' }}>⏳ Processando...</div>}
+            </div>
+            {!importando && (
+              <button className="btn btn-primary" style={{ width: '100%', marginTop: 16 }} onClick={() => { setImportLog([]); setModalImport(null); }}>
+                Fechar
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
