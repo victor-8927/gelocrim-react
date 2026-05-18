@@ -162,6 +162,8 @@ export const createRoute = async (route) => {
     assistant2_id: route.assistant2_id || null,
     route_date: route.date || new Date().toISOString().slice(0,10),
     planned_start: route.planned_start || '07:30',
+    trip_type: route.trip_type || '1viagem',
+    tempo_evento: route.tempo_evento ? parseInt(route.tempo_evento) : null,
     status: 'pending',
     total_stops: route.total_stops || 0,
     created_at: new Date().toISOString(),

@@ -86,6 +86,9 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
   const [confirmado, setConfirmado] = useState(false);
   const [gravando, setGravando] = useState(false);
   const [reprocessando, setReprocessando] = useState(false);
+  const [tipoOp, setTipoOp] = useState('1viagem'); // '1viagem' | '2viagem' | 'evento'
+  const [tempoEvento, setTempoEvento] = useState(''); // horas estimadas fora
+  const [conflito, setConflito] = useState(null); // aviso de conflito de horário
   const [dragIdx, setDragIdx] = useState(null);
   const mapRef = useRef(null);
   const mapObj = useRef(null);
@@ -300,8 +303,44 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
     }
   };
 
+  const verificarConflito = async () => {
+    if (!motorista?.id || !dataSaida) return null;
+    const { data: rotasMotorista } = await supabase
+      .from('routes')
+      .select('trip_number, planned_start, status, total_stops, route_date')
+      .eq('driver_id', motorista.id)
+      .eq('route_date', dataSaida)
+      .in('status', ['pending', 'planned', 'in_progress']);
+    if (!rotasMotorista || rotasMotorista.length === 0) return null;
+    // Calcular retorno estimado da última rota
+    const ultimaRota = rotasMotorista[rotasMotorista.length - 1];
+    const [h, m] = (ultimaRota.planned_start || '08:00').split(':').map(Number);
+    const minInicio = h * 60 + m;
+    const tempoEstimado = (ultimaRota.total_stops || 3) * 40; // 40 min por parada estimado
+    const minRetorno = minInicio + tempoEstimado + 30; // +30 min tolerância
+    if (minRetorno > 20 * 60) {
+      return { tipo: 'erro', msg: 'Motorista ultrapassa 20h com rotas existentes!' };
+    }
+    const hRetorno = Math.floor(minRetorno / 60);
+    const mRetorno = minRetorno % 60;
+    const horaRetorno = String(hRetorno).padStart(2,'0') + ':' + String(mRetorno).padStart(2,'0');
+    return { tipo: 'aviso', msg: `Motorista já tem rota às ${ultimaRota.planned_start}. Retorno estimado: ${horaRetorno} (+30min tolerância). Hora sugerida para esta viagem: ${horaRetorno}.`, horaRetorno };
+  };
+
   const gravar = async () => {
     if (!confirmado) return;
+    // Verificar conflito de horário
+    const conflitoDetectado = await verificarConflito();
+    if (conflitoDetectado?.tipo === 'erro') {
+      alert('❌ ' + conflitoDetectado.msg);
+      return;
+    }
+    if (conflitoDetectado?.tipo === 'aviso') {
+      const ok = window.confirm('⚠️ ' + conflitoDetectado.msg + '
+
+Deseja continuar mesmo assim?');
+      if (!ok) return;
+    }
     setGravando(true);
     try {
       // 1. Criar rota no Supabase
@@ -312,6 +351,8 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
         assistant2_id: ajudantes?.[1]?.id || null,
         date: dataSaida,
         planned_start: horaInicio,
+        trip_type: tipoOp,
+        tempo_evento: tipoOp === 'evento' ? tempoEvento : null,
         total_stops: ordem.length,
       });
 
@@ -476,6 +517,33 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
                   <div>
                     <div style={{ fontSize: 10, color: '#90afd4' }}>Data saída</div>
                     <input type="date" value={dataSaida} onChange={e => setDataSaida(e.target.value)} style={{ background: '#0a1628', border: '1px solid #1e3a5c', color: '#e8f0fe', borderRadius: 6, padding: '4px 8px', fontSize: 12, width: '100%' }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, color: '#90afd4', marginBottom: 4 }}>Tipo de Operação</div>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {[
+                        { key: '1viagem', label: '1ª Viagem', cor: '#10b981' },
+                        { key: '2viagem', label: '2ª Viagem', cor: '#64B4FF' },
+                        { key: 'evento', label: '🎉 Evento', cor: '#f59e0b' },
+                      ].map(t => (
+                        <button key={t.key} onClick={() => setTipoOp(t.key)}
+                          style={{ flex: 1, padding: '4px 2px', borderRadius: 6, border: `1px solid ${tipoOp === t.key ? t.cor : '#1e3a5c'}`, background: tipoOp === t.key ? t.cor + '22' : 'transparent', color: tipoOp === t.key ? t.cor : '#90afd4', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+                    {tipoOp === 'evento' && (
+                      <div style={{ marginTop: 6 }}>
+                        <div style={{ fontSize: 10, color: '#f59e0b', marginBottom: 3 }}>⏱️ Tempo estimado fora (horas)</div>
+                        <input type="number" min="1" max="12" value={tempoEvento} onChange={e => setTempoEvento(e.target.value)}
+                          placeholder="Ex: 3" style={{ width: '100%', background: '#0a1628', border: '1px solid #f59e0b', color: '#f59e0b', borderRadius: 6, padding: '4px 8px', fontSize: 12 }} />
+                      </div>
+                    )}
+                    {conflito && (
+                      <div style={{ marginTop: 6, padding: '6px 8px', background: 'rgba(245,158,11,0.1)', border: '1px solid #f59e0b', borderRadius: 6, fontSize: 10, color: '#f59e0b' }}>
+                        ⚠️ {conflito}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <div style={{ fontSize: 10, color: '#90afd4' }}>Hora início</div>
