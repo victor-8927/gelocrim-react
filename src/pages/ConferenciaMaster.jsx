@@ -160,11 +160,14 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
         waypoints: waypoints,
         optimizeWaypoints: false,
         travelMode: window.google.maps.TravelMode.DRIVING
-      }, (result, status) => {
+      }, function(result, status) {
+        if (polyRef.current && polyRef.current.setMap) polyRef.current.setMap(null);
         if (status === 'OK') {
           const renderer = new window.google.maps.DirectionsRenderer({
-            map: mapObj.current, suppressMarkers: true,
-            polylineOptions: { strokeColor: '#64B4FF', strokeWeight: 5, strokeOpacity: 0.8 }
+            map: mapObj.current,
+            suppressMarkers: true,
+            preserveViewport: false,
+            polylineOptions: { strokeColor: '#2563eb', strokeWeight: 5, strokeOpacity: 0.85 }
           });
           renderer.setDirections(result);
           polyRef.current = renderer;
