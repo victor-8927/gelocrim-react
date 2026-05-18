@@ -121,8 +121,6 @@ export default function Rotas() {
   const [aba, setAba] = useState('pendentes');
   const [liberando, setLiberando] = useState(null);
   const [selecionados, setSelecionados] = useState({});
-  const [aba, setAba] = useState('pendentes');
-  const [liberando, setLiberando] = useState(null); // eslint-disable-line
 
   const load = async () => {
     setLoading(true);
