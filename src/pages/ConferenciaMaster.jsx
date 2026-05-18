@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createRoute, supabase } from '../services/supabase';
 import { ChevronUp, ChevronDown } from 'lucide-react';
@@ -88,7 +89,7 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
   const [reprocessando, setReprocessando] = useState(false);
   const [tipoOp, setTipoOp] = useState('1viagem'); // '1viagem' | '2viagem' | 'evento'
   const [tempoEvento, setTempoEvento] = useState(''); // horas estimadas fora
-  const [conflito, setConflito] = useState(null); // eslint-disable-line // aviso de conflito de horário
+  const [conflito, setConflito] = useState(null);
   const [dragIdx, setDragIdx] = useState(null);
   const mapRef = useRef(null);
   const mapObj = useRef(null);
