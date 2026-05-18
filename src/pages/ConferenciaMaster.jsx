@@ -336,9 +336,7 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
       return;
     }
     if (conflitoDetectado?.tipo === 'aviso') {
-      const ok = window.confirm('⚠️ ' + conflitoDetectado.msg + '
-
-Deseja continuar mesmo assim?');
+      const ok = window.confirm('⚠️ ' + conflitoDetectado.msg + ' Deseja continuar mesmo assim?');
       if (!ok) return;
     }
     setGravando(true);
