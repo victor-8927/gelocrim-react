@@ -115,23 +115,56 @@ function ModalRota({ rota, onFechar }) {
 export default function Rotas() {
   const [rotas, setRotas] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState(new Date().toISOString().slice(0, 10));
+  const [data, setData] = useState(new Date(Date.now() + 86400000).toISOString().slice(0, 10));
   const [filtroStatus, setFiltroStatus] = useState('');
   const [rotaSel, setRotaSel] = useState(null);
   const [selecionados, setSelecionados] = useState({});
+  const [aba, setAba] = useState('pendentes');
+  const [liberando, setLiberando] = useState(null);
 
   const load = async () => {
     setLoading(true);
     try {
-      const r = await getRoutes({ date: data });
-      setRotas(Array.isArray(r) ? r : []);
+      // Buscar rotas da data selecionada + pendentes de qualquer data
+      const [rotasData, rotasPendentes] = await Promise.all([
+        getRoutes({ date: data }),
+        getRoutes({ status: 'pending' }),
+      ]);
+      const todas = [...(rotasPendentes || [])];
+      (rotasData || []).forEach(r => {
+        if (!todas.find(t => t.id === r.id)) todas.push(r);
+      });
+      setRotas(todas);
     } catch { setRotas([]); }
     finally { setLoading(false); }
   };
 
+  const liberarRota = async (rota) => {
+    if (!window.confirm(`Liberar rota ${rota.trip_number}? O motorista poderá fazer login.`)) return;
+    setLiberando(rota.id);
+    try {
+      const { supabase } = await import('../services/supabase');
+      await supabase.from('routes').update({ status: 'planned', updated_at: new Date().toISOString() }).eq('id', rota.id);
+      load();
+    } catch (e) { alert('Erro ao liberar: ' + e.message); }
+    finally { setLiberando(null); }
+  };
+
+  const bloquearRota = async (rota) => {
+    if (!window.confirm(`Bloquear rota ${rota.trip_number}?`)) return;
+    try {
+      const { supabase } = await import('../services/supabase');
+      await supabase.from('routes').update({ status: 'pending', updated_at: new Date().toISOString() }).eq('id', rota.id);
+      load();
+    } catch (e) { alert('Erro: ' + e.message); }
+  };
+
   useEffect(() => { load(); }, [data]); // eslint-disable-line
 
-  const filtradas = rotas.filter(r => !filtroStatus || r.status === filtroStatus);
+  const rotasPendentes = rotas.filter(r => r.status === 'pending');
+  const rotasLiberadas = rotas.filter(r => r.status === 'planned' || r.status === 'in_progress');
+  const rotasConcluidas = rotas.filter(r => r.status === 'completed' || r.status === 'done');
+  const filtradas = aba === 'pendentes' ? rotasPendentes : aba === 'liberadas' ? rotasLiberadas : aba === 'concluidas' ? rotasConcluidas : rotas.filter(r => !filtroStatus || r.status === filtroStatus);
 
   // KPIs
   const totalParadas = rotas.reduce((s, r) => s + (r.total_stops || 0), 0);
@@ -165,6 +198,22 @@ export default function Rotas() {
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <button className="btn btn-secondary" onClick={load}><RefreshCw size={14} /> Atualizar</button>
+        </div>
+      </div>
+
+      {/* Abas */}
+      <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+        {[
+          { key:'pendentes', label:`⏳ Pendentes (${rotasPendentes.length})`, cor:'#f59e0b' },
+          { key:'liberadas', label:`✅ Liberadas / Em Rota (${rotasLiberadas.length})`, cor:'#10b981' },
+          { key:'concluidas', label:`🏁 Concluídas (${rotasConcluidas.length})`, cor:'#64B4FF' },
+        ].map(a => (
+          <button key={a.key} onClick={() => setAba(a.key)}
+            style={{ padding:'8px 16px', borderRadius:8, border:`1px solid ${aba === a.key ? a.cor : '#1e3a5c'}`, background: aba === a.key ? `${a.cor}22` : 'transparent', color: aba === a.key ? a.cor : '#90afd4', fontWeight:700, cursor:'pointer', fontSize:12 }}>
+            {a.label}
+          </button>
+        ))}
+        <div style={{flex:1}} />
           {todosSelArr.length > 0 && (
             <button className="btn btn-secondary" onClick={() => window.print()}>🖨️ Imprimir Selecionados ({todosSelArr.length})</button>
           )}
