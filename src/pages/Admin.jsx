@@ -20,10 +20,10 @@ export default function Admin() {
   const load = async () => {
     setLoading(true);
     try {
-      const [rotas, pedidos, clientes, motoristas] = await Promise.all([
+      const [rotas, pedidos, , motoristas] = await Promise.all([
         supabase.from('routes').select('id, status, trip_number, route_date').order('created_at', { ascending: false }).limit(100),
         supabase.from('orders').select('id, status').limit(1000),
-        supabase.from('clients').select('id').limit(1),
+        Promise.resolve({ data: [] }),
         supabase.from('drivers').select('id, status').limit(100),
       ]);
       setStats({

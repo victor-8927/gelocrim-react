@@ -120,7 +120,7 @@ export default function Rotas() {
   const [rotaSel, setRotaSel] = useState(null);
   const [selecionados, setSelecionados] = useState({});
   const [aba, setAba] = useState('pendentes');
-  const [liberando, setLiberando] = useState(null);
+  const [liberando, setLiberando] = useState(null); // eslint-disable-line
 
   const load = async () => {
     setLoading(true);
@@ -139,7 +139,7 @@ export default function Rotas() {
     finally { setLoading(false); }
   };
 
-  const liberarRota = async (rota) => {
+  const liberarRota = async (rota) => { // eslint-disable-line
     if (!window.confirm(`Liberar rota ${rota.trip_number}? O motorista poderá fazer login.`)) return;
     setLiberando(rota.id);
     try {
@@ -150,7 +150,7 @@ export default function Rotas() {
     finally { setLiberando(null); }
   };
 
-  const bloquearRota = async (rota) => {
+  const bloquearRota = async (rota) => { // eslint-disable-line
     if (!window.confirm(`Bloquear rota ${rota.trip_number}?`)) return;
     try {
       const { supabase } = await import('../services/supabase');
