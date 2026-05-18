@@ -56,18 +56,12 @@ export default function Login() {
   const [loading, setLoading]   = useState(false);
   const [focusEmail, setFocusEmail] = useState(false);
   const [focusPass, setFocusPass]   = useState(false);
-  const [imgLoaded, setImgLoaded]   = useState(false);
+
   const { login } = useAuth();
   const navigate = useNavigate();
 
   // Foto aérea de Manaus - Rio Negro
   const BG_IMAGE = 'https://images.unsplash.com/photo-1583500178450-e59e4309b57f?w=1920&q=80&auto=format&fit=crop';
-
-  useEffect(() => {
-    const img = new Image();
-    img.onload = () => setImgLoaded(true);
-    img.src = BG_IMAGE;
-  }, []); // eslint-disable-line
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -98,11 +92,9 @@ export default function Login() {
       {/* Fundo — foto Manaus */}
       <div style={{
         position: 'absolute', inset: 0,
-        backgroundImage: imgLoaded ? `url(${BG_IMAGE})` : 'none',
+        backgroundImage: `url(${BG_IMAGE})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        transition: 'opacity 1s',
-        opacity: imgLoaded ? 1 : 0,
       }} />
 
       {/* Gradiente sobre a foto */}
@@ -112,13 +104,7 @@ export default function Login() {
         zIndex: 0,
       }} />
 
-      {/* Fallback gradiente quando foto carrega */}
-      {!imgLoaded && (
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'linear-gradient(135deg, #061020 0%, #0a1f3d 50%, #061020 100%)',
-        }} />
-      )}
+
 
       {/* Flocos */}
       <Snowflakes />
