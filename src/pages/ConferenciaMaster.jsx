@@ -88,7 +88,7 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
   const [reprocessando, setReprocessando] = useState(false);
   const [tipoOp, setTipoOp] = useState('1viagem'); // '1viagem' | '2viagem' | 'evento'
   const [tempoEvento, setTempoEvento] = useState(''); // horas estimadas fora
-  const [conflito, setConflito] = useState(null); // aviso de conflito de horário
+  const [conflito, setConflito] = useState(null); // eslint-disable-line // aviso de conflito de horário
   const [dragIdx, setDragIdx] = useState(null);
   const mapRef = useRef(null);
   const mapObj = useRef(null);
