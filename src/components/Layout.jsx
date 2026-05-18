@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, Package, Zap, Map, Radio, AlertTriangle,
   Truck, Users, Factory, Handshake, RefreshCw, BarChart2,
-  LogOut, ChevronLeft, ChevronRight
+  LogOut, ChevronLeft, ChevronRight, Shield
 } from 'lucide-react';
 
 const navItems = [
@@ -27,6 +27,9 @@ const navItems = [
   ]},
   { section: 'RELATORIOS', items: [
     { to: '/relatorios', icon: BarChart2, label: 'Relatorios' },
+  ]},
+  { section: 'SISTEMA', items: [
+    { to: '/admin', icon: Shield, label: 'Administracao' },
   ]},
 ];
 
