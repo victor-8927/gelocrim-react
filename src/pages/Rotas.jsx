@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getRoutes } from '../services/supabase';
+import { getRoutes, supabase } from '../services/supabase';
 import { RefreshCw, X, Eye } from 'lucide-react';
 
 function ModalRota({ rota, onFechar }) {
@@ -118,6 +118,8 @@ export default function Rotas() {
   const [data, setData] = useState(new Date(Date.now() + 86400000).toISOString().slice(0, 10));
   const [filtroStatus, setFiltroStatus] = useState('');
   const [rotaSel, setRotaSel] = useState(null);
+  const [aba, setAba] = useState('pendentes');
+  const [liberando, setLiberando] = useState(null);
   const [selecionados, setSelecionados] = useState({});
   const [aba, setAba] = useState('pendentes');
   const [liberando, setLiberando] = useState(null); // eslint-disable-line
