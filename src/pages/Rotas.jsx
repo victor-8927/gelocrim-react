@@ -217,7 +217,6 @@ export default function Rotas() {
           {todosSelArr.length > 0 && (
             <button className="btn btn-secondary" onClick={() => window.print()}>🖨️ Imprimir Selecionados ({todosSelArr.length})</button>
           )}
-        </div>
       </div>
 
       {/* KPIs */}

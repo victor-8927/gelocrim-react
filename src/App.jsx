@@ -14,6 +14,8 @@ import Veiculos from './pages/Veiculos';
 import Parceiros from './pages/Parceiros';
 import Producao from './pages/Producao';
 import Relatorios from './pages/Relatorios';
+import Sankhya from './pages/Sankhya';
+import Admin from './pages/Admin';
 
 const Placeholder = ({ title }) => (
   <div>
