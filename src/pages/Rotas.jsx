@@ -308,7 +308,19 @@ export default function Rotas() {
                     <td>
                       <button className="btn btn-secondary btn-sm" onClick={() => setRotaSel(r)}>
                         <Eye size={12} /> Ver
-                      </button>
+                         </button>
+                         {r.status === 'pending' && (
+                           <button onClick={() => liberarRota(r)} disabled={liberando === r.id}
+                             style={{background:'rgba(16,185,129,.2)',border:'1px solid #10b981',color:'#10b981',borderRadius:6,padding:'4px 10px',cursor:'pointer',fontSize:12,fontWeight:700,marginLeft:6}}>
+                             {liberando === r.id ? '...' : '✅ Liberar'}
+                           </button>
+                         )}
+                         {r.status === 'planned' && (
+                           <button onClick={() => bloquearRota(r)}
+                             style={{background:'rgba(239,68,68,.15)',border:'1px solid #ef4444',color:'#ef4444',borderRadius:6,padding:'4px 10px',cursor:'pointer',fontSize:12,fontWeight:700,marginLeft:6}}>
+                             🔒 Bloquear
+                           </button>
+                         )}
                     </td>
                   </tr>
                 );
