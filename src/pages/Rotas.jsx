@@ -126,16 +126,17 @@ export default function Rotas() {
     setLoading(true);
     try {
       // Buscar rotas da data selecionada + pendentes de qualquer data
-      const [rotasData, rotasPendentes] = await Promise.all([
+      const [rotasData, rotasPendentes, rotasPlanned] = await Promise.all([
         getRoutes({ date: data }),
         getRoutes({ status: 'pending' }),
+        getRoutes({ status: 'planned' }),
       ]);
-      const todas = [...(rotasPendentes || [])];
-      (rotasData || []).forEach(r => {
+      const todas = [];
+      [...(rotasPendentes || []), ...(rotasPlanned || []), ...(rotasData || [])].forEach(r => {
         if (!todas.find(t => t.id === r.id)) todas.push(r);
       });
       setRotas(todas);
-    } catch { setRotas([]); }
+    } catch (e) { console.error('Rotas erro:', e); setRotas([]); }
     finally { setLoading(false); }
   };
 
