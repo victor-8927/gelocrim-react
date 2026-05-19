@@ -9,106 +9,233 @@ const PRODUTOS = [
   { code: '373', name: 'GELO 40KG', weight: 45 },
 ];
 
+function formatTaxId(taxId) {
+  if (!taxId) return '—';
+  const digits = taxId.replace(/\D/g, '');
+  if (digits.length === 11) {
+    return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  }
+  if (digits.length === 14) {
+    return digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+  }
+  return taxId;
+}
+
+function consolidarItens(itens) {
+  const mapa = {};
+  itens.forEach(i => {
+    const key = i.code;
+    if (!mapa[key]) mapa[key] = { ...i, qty: 0 };
+    mapa[key].qty += i.qty;
+  });
+  return Object.values(mapa);
+}
+
 function gerarHTMLDocumento(tipo, dados) {
   const { cliente, itens, refNF, refOC, rota, data } = dados;
-  const totalPeso = itens.reduce((s, i) => s + (i.qty * i.weight), 0);
-  const totalQtd = itens.reduce((s, i) => s + i.qty, 0);
+  const itensFiltrados = consolidarItens(itens.filter(i => i.qty > 0));
+  const totalPeso = itensFiltrados.reduce((s, i) => s + (i.qty * i.weight), 0);
+  const totalQtd = itensFiltrados.reduce((s, i) => s + i.qty, 0);
+  const taxIdLabel = cliente.tax_id && cliente.tax_id.replace(/\D/g, '').length === 11 ? 'CPF' : 'CNPJ';
+  const taxIdFormatado = formatTaxId(cliente.tax_id);
 
-  const via1 = tipo === 'cliente' ? 'VIA DO CLIENTE' : 'VIA PRODUÇÃO';
-  const via2 = tipo === 'cliente' ? 'VIA GELOCRIM' : 'VIA ANALISTA';
+  const via1Label = tipo === 'cliente' ? 'VIA DO CLIENTE' : 'VIA DA PRODUÇÃO';
+  const via2Label = tipo === 'cliente' ? 'VIA DA GELOCRIM' : 'VIA DO ANALISTA';
   const titulo = tipo === 'cliente' ? 'COMPROVANTE DE ENTREGA — SALDO' : 'ORDEM DE SEPARAÇÃO — SALDO';
 
-  const assinatura1 = tipo === 'cliente'
-    ? `<div class="campo">Assinatura do cliente: _________________________________</div>
-       <div class="campo">Nome: _________________________________  Data: ___/___/______</div>`
-    : `<div class="campo">Assinatura Produção: _________________________________  Data: ___/___/______</div>`;
+  const linhasItens = itensFiltrados.map(i => `
+    <tr>
+      <td style="text-align:center">${i.code}</td>
+      <td>${i.name}</td>
+      <td style="text-align:center">${i.qty}</td>
+      <td style="text-align:center">${i.weight} kg</td>
+      <td style="text-align:center"><strong>${(i.qty * i.weight).toFixed(0)} kg</strong></td>
+    </tr>`).join('');
 
-  const assinatura2 = tipo === 'cliente'
-    ? `<div class="campo">Assinatura do cliente: _________________________________</div>
-       <div class="campo">Nome: _________________________________  Data: ___/___/______</div>`
-    : `<div class="campo">Assinatura Analista: _________________________________  Data: ___/___/______</div>`;
+  const assinatura = tipo === 'cliente'
+    ? `<div style="margin-top:24px">
+        <p style="margin-bottom:32px">Declaro ter recebido os produtos acima em perfeitas condições.</p>
+        <div style="display:flex;gap:40px">
+          <div style="flex:2;border-top:1px solid #000;padding-top:4px;font-size:10px">Assinatura do Cliente</div>
+          <div style="flex:1;border-top:1px solid #000;padding-top:4px;font-size:10px">Data: ___/___/______</div>
+        </div>
+        <div style="margin-top:16px;border-top:1px solid #000;padding-top:4px;font-size:10px;width:60%">Nome legível</div>
+       </div>`
+    : `<div style="margin-top:24px;display:flex;gap:40px">
+        <div style="flex:1;border-top:1px solid #000;padding-top:4px;font-size:10px">Assinatura Responsável Produção</div>
+        <div style="flex:1;border-top:1px solid #000;padding-top:4px;font-size:10px">Data: ___/___/______</div>
+       </div>`;
 
-  const blocoCliente = `
-    <div class="secao">
-      <b>CLIENTE:</b> ${cliente.name || '—'}<br/>
-      <b>COD:</b> ${cliente.codparc || '—'} &nbsp;&nbsp;
-      <b>CNPJ:</b> ${cliente.cnpj || '—'}<br/>
-      <b>ENDEREÇO:</b> ${cliente.address || '—'}
-    </div>`;
-
-  const blocoRota = `
-    <div class="secao">
-      <b>ROTA:</b> ${rota || '—'} &nbsp;&nbsp;
-      <b>DATA:</b> ${data || '—'} &nbsp;&nbsp;
-      <b>REF. NF:</b> ${refNF || '—'} &nbsp;&nbsp;
-      <b>REF. OC:</b> ${refOC || '—'}
-    </div>`;
-
-  const tabelaItens = `
-    <table>
-      <thead>
-        <tr>
-          <th>CÓD</th><th>PRODUTO</th><th>QTDE</th><th>PESO UNIT.</th><th>PESO TOTAL</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${itens.map(i => `
-          <tr>
-            <td>${i.code}</td>
-            <td>${i.name}</td>
-            <td>${i.qty} un</td>
-            <td>${i.weight} kg</td>
-            <td>${(i.qty * i.weight).toFixed(0)} kg</td>
-          </tr>
-        `).join('')}
-        <tr class="total">
-          <td colspan="2"><b>TOTAL</b></td>
-          <td><b>${totalQtd} un</b></td>
-          <td></td>
-          <td><b>${totalPeso.toFixed(0)} kg</b></td>
-        </tr>
-      </tbody>
-    </table>`;
-
-  const bloco = (via, ass) => `
+  const blocoVia = (viaLabel) => `
     <div class="via">
-      <div class="via-label">${via}</div>
+      <div class="via-badge">${viaLabel}</div>
+
       <div class="header">
-        <div class="empresa">GELOCRIM INDÚSTRIA DE GELO LTDA</div>
-        <div class="titulo">${titulo}</div>
+        <div class="empresa-nome">GELOCRIM INDÚSTRIA DE GELO LTDA</div>
+        <div class="empresa-info">CNPJ: 07.252.557/0001-70 &nbsp;|&nbsp; Manaus - AM</div>
+        <div class="doc-titulo">${titulo}</div>
       </div>
-      ${tipo === 'cliente' ? blocoCliente + blocoRota : blocoRota + blocoCliente}
-      ${tabelaItens}
-      <div class="assinaturas">${ass}</div>
+
+      <div class="secoes">
+        <div class="secao">
+          <div class="secao-titulo">${tipo === 'cliente' ? 'DADOS DO CLIENTE' : 'ROTA E REFERÊNCIA'}</div>
+          ${tipo === 'cliente' ? `
+          <table class="dados">
+            <tr><td class="label">Nome / Razão Social</td><td><strong>${cliente.name || '—'}</strong></td></tr>
+            <tr><td class="label">${taxIdLabel}</td><td>${taxIdFormatado}</td></tr>
+            <tr><td class="label">Endereço</td><td>${cliente.address || '—'}${cliente.district ? ', ' + cliente.district : ''}</td></tr>
+            <tr><td class="label">Cód. Parceiro</td><td>${cliente.codparc || '—'}</td></tr>
+          </table>` : `
+          <table class="dados">
+            <tr><td class="label">Rota</td><td>${rota || '—'}</td><td class="label">Data</td><td>${data || '—'}</td></tr>
+            <tr><td class="label">Ref. NF</td><td>${refNF || '—'}</td><td class="label">Ref. OC</td><td>${refOC || '—'}</td></tr>
+          </table>`}
+        </div>
+
+        <div class="secao">
+          <div class="secao-titulo">${tipo === 'cliente' ? 'REFERÊNCIA DA ENTREGA' : 'DADOS DO CLIENTE'}</div>
+          ${tipo === 'cliente' ? `
+          <table class="dados">
+            <tr><td class="label">Rota</td><td>${rota || '—'}</td><td class="label">Data</td><td>${data || '—'}</td></tr>
+            <tr><td class="label">Ref. NF</td><td>${refNF || '—'}</td><td class="label">Ref. OC</td><td>${refOC || '—'}</td></tr>
+          </table>` : `
+          <table class="dados">
+            <tr><td class="label">Nome</td><td><strong>${cliente.name || '—'}</strong></td></tr>
+            <tr><td class="label">${taxIdLabel}</td><td>${taxIdFormatado}</td></tr>
+            <tr><td class="label">Endereço</td><td>${cliente.address || '—'}${cliente.district ? ', ' + cliente.district : ''}</td></tr>
+          </table>`}
+        </div>
+      </div>
+
+      <div class="secao" style="margin-top:10px">
+        <div class="secao-titulo">ITENS A ENTREGAR</div>
+        <table class="itens">
+          <thead>
+            <tr>
+              <th style="width:60px">CÓD.</th>
+              <th>PRODUTO</th>
+              <th style="width:70px">QTDE</th>
+              <th style="width:80px">PESO UNIT.</th>
+              <th style="width:90px">PESO TOTAL</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${linhasItens}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="2" style="text-align:right;font-weight:bold;padding:6px 8px">TOTAL</td>
+              <td style="text-align:center;font-weight:bold">${totalQtd} un</td>
+              <td></td>
+              <td style="text-align:center;font-weight:bold">${totalPeso.toFixed(0)} kg</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      ${assinatura}
     </div>`;
 
   return `<!DOCTYPE html>
-<html><head>
+<html lang="pt-BR">
+<head>
 <meta charset="utf-8"/>
+<title>${titulo}</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: Arial, sans-serif; font-size: 11px; color: #000; }
-  .via { padding: 16px; border-bottom: 2px dashed #000; min-height: 48%; }
-  .via:last-child { border-bottom: none; }
-  .via-label { font-size: 9px; font-weight: bold; color: #555; letter-spacing: 2px; text-align: right; margin-bottom: 8px; }
-  .header { text-align: center; margin-bottom: 10px; }
-  .empresa { font-size: 13px; font-weight: bold; }
-  .titulo { font-size: 11px; font-weight: bold; color: #333; margin-top: 4px; letter-spacing: 1px; }
-  .secao { border: 1px solid #999; border-radius: 4px; padding: 6px 10px; margin-bottom: 8px; line-height: 1.6; }
-  table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-  th { background: #222; color: #fff; padding: 5px 8px; text-align: left; font-size: 10px; }
-  td { padding: 4px 8px; border-bottom: 1px solid #ddd; font-size: 11px; }
-  tr.total td { border-top: 2px solid #000; background: #f5f5f5; }
-  .assinaturas { margin-top: 10px; }
-  .campo { margin-bottom: 14px; font-size: 11px; line-height: 1.8; }
-  @media print { body { margin: 0; } }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size:11px; color:#000; background:#fff; }
+
+  .via {
+    width: 190mm;
+    min-height: 135mm;
+    margin: 6mm auto;
+    padding: 8mm 10mm;
+    border: 1px solid #999;
+    page-break-inside: avoid;
+  }
+
+  .via-badge {
+    text-align: right;
+    font-size: 9px;
+    font-weight: bold;
+    color: #555;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .header {
+    text-align: center;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #000;
+    margin-bottom: 10px;
+  }
+  .empresa-nome { font-size: 14px; font-weight: bold; letter-spacing: 1px; }
+  .empresa-info { font-size: 9px; color: #444; margin-top: 2px; }
+  .doc-titulo {
+    font-size: 11px;
+    font-weight: bold;
+    margin-top: 6px;
+    padding: 4px 20px;
+    border: 1px solid #000;
+    display: inline-block;
+    letter-spacing: 1px;
+  }
+
+  .secoes { display: flex; gap: 10px; margin-bottom: 0; }
+  .secoes .secao { flex: 1; }
+
+  .secao { margin-bottom: 8px; }
+  .secao-titulo {
+    font-size: 9px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #333;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 2px;
+    margin-bottom: 5px;
+  }
+
+  table.dados { width: 100%; border-collapse: collapse; }
+  table.dados td { padding: 2px 4px; font-size: 10px; vertical-align: top; }
+  table.dados td.label { color: #555; width: 90px; font-size: 9px; white-space: nowrap; }
+
+  table.itens { width: 100%; border-collapse: collapse; }
+  table.itens th {
+    background: #222; color: #fff;
+    padding: 5px 8px;
+    text-align: left;
+    font-size: 9px;
+    letter-spacing: 0.5px;
+  }
+  table.itens td { padding: 4px 8px; border-bottom: 1px solid #eee; font-size: 10px; }
+  table.itens tfoot td { border-top: 2px solid #000; background: #f5f5f5; }
+
+  .corte {
+    text-align: center;
+    font-size: 9px;
+    color: #999;
+    margin: 0;
+    padding: 2mm 0;
+    border-top: 1px dashed #aaa;
+    border-bottom: 1px dashed #aaa;
+    letter-spacing: 2px;
+  }
+
+  @media print {
+    body { margin: 0; }
+    .corte { border-top: 1px dashed #aaa; border-bottom: 1px dashed #aaa; }
+  }
 </style>
 </head>
 <body>
-  ${bloco(via1, assinatura1)}
-  ${bloco(via2, assinatura2)}
+  ${blocoVia(via1Label)}
+  <div class="corte">✂ &nbsp; RECORTE AQUI &nbsp; ✂</div>
+  ${blocoVia(via2Label)}
   <script>window.onload = function() { window.print(); }</script>
-</body></html>`;
+</body>
+</html>`;
 }
 
 export default function ModalSaldo({ onFechar, onSalvo }) {
@@ -129,8 +256,8 @@ export default function ModalSaldo({ onFechar, onSalvo }) {
     setBuscando(true);
     try {
       const { data: clientes, error } = await supabase
-        .from('clients_view')
-        .select('codparc, name, address, district')
+        .from('clients')
+        .select('codparc, name, address, district, tax_id')
         .eq('codparc', parseInt(codparc))
         .limit(1);
       if (error) { alert('Erro: ' + error.message); return; }
