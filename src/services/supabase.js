@@ -6,15 +6,34 @@ const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || '';
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ─── CLIENTS ─────────────────────────────────────────────────────────────────
-export const getClients = async ({ limit = 1500, geo_zone, route, search } = {}) => {
-  let q = supabase.from('clients').select('*').order('name');
-  if (geo_zone) q = q.eq('geo_zone', geo_zone);
-  if (route) q = q.eq('route', route);
-  if (search) q = q.or(`name.ilike.%${search}%,codparc.eq.${isNaN(search) ? 0 : search}`);
-  q = q.limit(limit);
-  const { data, error } = await q;
-  if (error) throw error;
-  return data;
+export const getClients = async ({ geo_zone, route, search } = {}) => {
+  // Se houver busca — query direta no banco (busca nos 1290 todos)
+  if (search) {
+    const isNum = !isNaN(search) && search.trim() !== '';
+    let q = supabase.from('clients').select('*').order('name');
+    if (geo_zone) q = q.eq('geo_zone', geo_zone);
+    q = q.or(`name.ilike.%${search}%${isNum ? `,codparc.eq.${search}` : ''}`);
+    q = q.limit(100);
+    const { data, error } = await q;
+    if (error) throw error;
+    return data;
+  }
+
+  // Sem busca — carrega todos em lotes de 1000
+  let todos = [];
+  let from = 0;
+  const lote = 1000;
+  while (true) {
+    let q = supabase.from('clients').select('*').order('name').range(from, from + lote - 1);
+    if (geo_zone) q = q.eq('geo_zone', geo_zone);
+    if (route)    q = q.eq('route', route);
+    const { data, error } = await q;
+    if (error) throw error;
+    todos = todos.concat(data || []);
+    if (!data || data.length < lote) break;
+    from += lote;
+  }
+  return todos;
 };
 
 export const getComodatosByClient = async (codparc) => {
@@ -26,8 +45,8 @@ export const getComodatosByClient = async (codparc) => {
 // ─── ORDERS ──────────────────────────────────────────────────────────────────
 export const getOrders = async ({ limit = 500, status, region, order_type, search } = {}) => {
   let q = supabase.from('orders').select(`*, order_items(*)`).order('external_id', { ascending: false });
-  if (status) q = q.eq('status', status);
-  if (region) q = q.eq('region', region);
+  if (status)     q = q.eq('status', status);
+  if (region)     q = q.eq('region', region);
   if (order_type) q = q.eq('order_type', order_type);
   if (search) {
     const isNum = !isNaN(search);
@@ -49,7 +68,6 @@ export const getDrivers = async ({ type } = {}) => {
 };
 
 export const upsertDriver = async (driver) => {
-  // Campos válidos da tabela drivers
   const payload = {
     id: driver.id,
     name: driver.name,
@@ -89,7 +107,6 @@ export const getVehicles = async () => {
 };
 
 export const upsertVehicle = async (vehicle) => {
-  // Campos válidos da tabela vehicles
   const payload = {
     id: vehicle.id,
     plate: vehicle.plate,
@@ -131,7 +148,7 @@ export const deleteVehicle = async (id) => {
 // ─── ROUTES ──────────────────────────────────────────────────────────────────
 export const getRoutes = async ({ date, status } = {}) => {
   let q = supabase.from('routes').select(`*, stops(*)`).order('created_at', { ascending: false });
-  if (date) q = q.eq('route_date', date);
+  if (date)   q = q.eq('route_date', date);
   if (status) q = q.eq('status', status);
   const { data, error } = await q;
   if (error) throw error;
@@ -215,7 +232,6 @@ export const getPallets = async () => {
 };
 
 export const upsertPallet = async (pallet) => {
-  // Campos válidos da tabela pallets: id, name, length, width, height, volume, max_weight, notes
   const payload = {
     id: pallet.id || `plt-${Date.now()}`,
     name: pallet.name,
@@ -240,7 +256,6 @@ export const getProductionItems = async () => {
 };
 
 export const upsertProductionItem = async (item) => {
-  // Campos válidos: id, name, weight, length, width, height, units_per_pallet, top, notes
   const l = parseFloat(item.length) || 0;
   const w = parseFloat(item.width) || 0;
   const h = parseFloat(item.height) || 0;
@@ -250,9 +265,7 @@ export const upsertProductionItem = async (item) => {
     id: item.id || `pit-${Date.now()}`,
     name: item.name,
     weight: parseFloat(item.weight || item.weight_kg) || 0,
-    length: l,
-    width: w,
-    height: h,
+    length: l, width: w, height: h,
     units_per_pallet: item.units_per_pallet || (volItem > 0 ? Math.floor(volPallet / volItem) : 0),
     top: item.top || '1000',
     notes: item.notes || null,
@@ -273,7 +286,7 @@ export const deletePallet = async (id) => {
   if (error) throw error;
 };
 
-// ─── COMODATOS ────────────────────────────────────────────────────────────────
+// ─── DASHBOARD ───────────────────────────────────────────────────────────────
 export const getDashboardData = async (date) => {
   const today = date || new Date().toISOString().slice(0, 10);
   const [orders, routes, vehicles, drivers] = await Promise.all([
@@ -283,8 +296,8 @@ export const getDashboardData = async (date) => {
     supabase.from('drivers').select('id, type, status'),
   ]);
   return {
-    orders: orders.data || [],
-    routes: routes.data || [],
+    orders:  orders.data  || [],
+    routes:  routes.data  || [],
     vehicles: vehicles.data || [],
     drivers: drivers.data || [],
   };
