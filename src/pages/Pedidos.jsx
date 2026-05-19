@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { getOrders, supabase } from '../services/supabase';
 import { RefreshCw, Search, X } from 'lucide-react';
+import ModalSaldo from './ModalSaldo';
 
 const STATUS_LABELS = {
   pending: 'Pendente', routed: 'Roteirizado', delivered: 'Entregue', failed: 'Falha',
 };
 
 const TOP_LABELS = {
-  '1000': 'Venda', '1007': 'Bonif.', '1008': 'Consig.', '1009': 'Troca', '1010': 'Saldo',
+  '1000': 'Venda', '1007': 'Bonif.', '1008': 'Consig.', '1009': 'Troca', '1010': 'Pre-ped.',
 };
 
 const TOP_CORES = {
@@ -149,6 +150,7 @@ function ModalPedido({ pedido, onFechar }) {
 export default function Pedidos() {
   const [pedidos, setPedidos] = useState([]);
   const [resumoItens, setResumoItens] = useState([]);
+  const [modalSaldo, setModalSaldo] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState('');
   const [status, setStatus] = useState('');
@@ -233,6 +235,7 @@ export default function Pedidos() {
           <button className="btn btn-secondary" style={{ fontSize: 12 }}>📦 Importar Itens</button>
           <button className="btn btn-secondary" style={{ fontSize: 12 }}>📋 Importar Planilha TI</button>
           <button className="btn btn-secondary" style={{ fontSize: 12 }}>🔄 Sincronizar Sankhya</button>
+          <button className="btn btn-secondary" style={{ fontSize: 12, borderColor: '#64B4FF', color: '#64B4FF' }} onClick={() => setModalSaldo(true)}>🔵 + Saldo</button>
           <button className="btn btn-primary" style={{ fontSize: 12 }}>+ Novo Pedido</button>
         </div>
       </div>
@@ -403,6 +406,7 @@ export default function Pedidos() {
       </div>
 
       {modalPedido && <ModalPedido pedido={modalPedido} onFechar={() => setModalPedido(null)} />}
+      {modalSaldo && <ModalSaldo onFechar={() => setModalSaldo(false)} onSalvo={load} />}
     </div>
   );
 }
