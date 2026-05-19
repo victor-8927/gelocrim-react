@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { getOrders, supabase } from '../services/supabase';
 import * as XLSX from 'xlsx';
 import { RefreshCw, Search, X } from 'lucide-react';
+import ModalSaldo from './ModalSaldo';
 
 const STATUS_LABELS = {
   pending: 'Pendente', routed: 'Roteirizado', delivered: 'Entregue', failed: 'Falha',
@@ -86,6 +87,7 @@ export default function Pedidos() {
   const [importando, setImportando] = useState(false);
   const [importLog, setImportLog] = useState([]);
   const [modalImportTipo, setModalImportTipo] = useState(null);
+  const [modalSaldo, setModalSaldo] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -277,6 +279,7 @@ export default function Pedidos() {
           <button className="btn btn-secondary" onClick={load}><RefreshCw size={14} /> Atualizar</button>
           <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={() => setModalImportTipo('cab')}>📥 Importar Cab</button>
           <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={() => setModalImportTipo('itens')}>📦 Importar Itens</button>
+          <button className="btn btn-secondary" style={{ fontSize: 12, borderColor: '#64B4FF', color: '#64B4FF' }} onClick={() => setModalSaldo(true)}>🔵 + Saldo (1010)</button>
           <button className="btn btn-primary" style={{ fontSize: 12 }}>+ Novo Pedido</button>
         </div>
       </div>
@@ -386,6 +389,8 @@ export default function Pedidos() {
       {modalPedido && <ModalPedido pedido={modalPedido} onFechar={() => setModalPedido(null)} />}
 
       {/* Modal Importação */}
+      {modalSaldo && <ModalSaldo onFechar={() => setModalSaldo(false)} onSalvo={load} />}
+
       {modalImportTipo && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.75)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div style={{ background: '#0f2040', border: '1px solid #1e3a5c', borderRadius: 16, width: 520 }}>
