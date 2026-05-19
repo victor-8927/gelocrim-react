@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import api from '../services/api';
+import { getOrders, getRoutes, getVehicles, getDrivers } from '../services/supabase';
 import { RefreshCw, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -31,10 +31,10 @@ export default function Dashboard() {
     setLoading(true);
     try {
       const [p, r, v, d] = await Promise.all([
-        api.get('/orders?status=pending&limit=500').catch(() => []),
-        api.get(`/routes?date=${today}`).catch(() => []),
-        api.get('/vehicles').catch(() => []),
-        api.get('/drivers').catch(() => []),
+        getOrders({ status: 'pending', limit: 500 }).catch(() => []),
+        getRoutes({ date: today }).catch(() => []),
+        getVehicles().catch(() => []),
+        getDrivers().catch(() => []),
       ]);
       setPedidos(Array.isArray(p) ? p : []);
       setRotas(Array.isArray(r) ? r : []);
