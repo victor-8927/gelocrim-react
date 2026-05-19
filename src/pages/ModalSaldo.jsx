@@ -129,8 +129,8 @@ export default function ModalSaldo({ onFechar, onSalvo }) {
     setBuscando(true);
     try {
       const { data: clientes, error } = await supabase
-        .from('clients')
-        .select('codparc, name, address, district, cnpj')
+        .from('clients_view')
+        .select('codparc, name, address, district')
         .eq('codparc', parseInt(codparc))
         .limit(1);
       if (error) { alert('Erro: ' + error.message); return; }
