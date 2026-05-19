@@ -128,13 +128,14 @@ export default function ModalSaldo({ onFechar, onSalvo }) {
     if (!codparc) return;
     setBuscando(true);
     try {
-      const { data: cli } = await supabase
+      const { data: clientes, error } = await supabase
         .from('clients')
         .select('codparc, name, address, district, cnpj')
         .eq('codparc', parseInt(codparc))
-        .single();
-      if (cli) setCliente(cli);
-      else alert('Cliente não encontrado');
+        .limit(1);
+      if (error) { alert('Erro: ' + error.message); return; }
+      if (clientes && clientes.length > 0) setCliente(clientes[0]);
+      else alert('Cliente não encontrado. Verifique o codparc.');
     } catch (e) { alert('Erro ao buscar cliente'); }
     finally { setBuscando(false); }
   }
