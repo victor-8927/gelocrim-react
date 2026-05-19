@@ -70,16 +70,16 @@ export default function Dashboard() {
   const falhas = pedidos.filter(p => p.status === 'failed').length;
   const total = pendentes + emRota + entregues + falhas;
   const progresso = total > 0 ? Math.round(entregues / total * 100) : 0;
-  const saldoPendente = pedidos.filter(p => p.order_type === '1010' && p.status === 'pending').length;
-  const saldoEntregue = pedidos.filter(p => p.order_type === '1010' && p.status === 'delivered').length;
-  const saldoRetornado = pedidos.filter(p => p.order_type === '1010' && p.status === 'failed').length;
-  const pesoVenda = pedidos.filter(p => p.order_type === '1000').reduce((s, p) => s + (parseFloat(p.weight_kg) || 0), 0);
-  const pesoTroca = pedidos.filter(p => p.order_type === '1009').reduce((s, p) => s + (parseFloat(p.weight_kg) || 0), 0);
-  const pesoBonif = pedidos.filter(p => p.order_type === '1007').reduce((s, p) => s + (parseFloat(p.weight_kg) || 0), 0);
-  const pesoSaldo = pedidos.filter(p => p.order_type === '1010').reduce((s, p) => s + (parseFloat(p.weight_kg) || 0), 0);
-  const valorVenda = pedidos.filter(p => p.order_type === '1000').reduce((s, p) => s + (parseFloat(p.total_value) || 0), 0);
-  const valorTroca = pedidos.filter(p => p.order_type === '1009').reduce((s, p) => s + (parseFloat(p.total_value) || 0), 0);
-  const valorBonif = pedidos.filter(p => p.order_type === '1007').reduce((s, p) => s + (parseFloat(p.total_value) || 0), 0);
+  const saldoPendente = pedidos.filter(p => p.is_saldo && p.status === 'pending').length;
+  const saldoEntregue = pedidos.filter(p => p.is_saldo && p.status === 'delivered').length;
+  const saldoRetornado = pedidos.filter(p => p.is_saldo && p.status === 'failed').length;
+  const pesoVenda = pedidos.filter(p => p.order_type === '1000' && !p.is_saldo).reduce((s, p) => s + (parseFloat(p.weight_kg) || 0), 0);
+  const pesoTroca = pedidos.filter(p => p.order_type === '1009' && !p.is_saldo).reduce((s, p) => s + (parseFloat(p.weight_kg) || 0), 0);
+  const pesoBonif = pedidos.filter(p => p.order_type === '1007' && !p.is_saldo).reduce((s, p) => s + (parseFloat(p.weight_kg) || 0), 0);
+  const pesoSaldo = pedidos.filter(p => p.is_saldo).reduce((s, p) => s + (parseFloat(p.weight_kg) || 0), 0);
+  const valorVenda = pedidos.filter(p => p.order_type === '1000' && !p.is_saldo).reduce((s, p) => s + (parseFloat(p.total_value) || 0), 0);
+  const valorTroca = pedidos.filter(p => p.order_type === '1009' && !p.is_saldo).reduce((s, p) => s + (parseFloat(p.total_value) || 0), 0);
+  const valorBonif = pedidos.filter(p => p.order_type === '1007' && !p.is_saldo).reduce((s, p) => s + (parseFloat(p.total_value) || 0), 0);
 
   const rotasHoje = rotas.length;
   const paradasHoje = rotas.reduce((s, r) => s + (r.total_stops || 0), 0);
