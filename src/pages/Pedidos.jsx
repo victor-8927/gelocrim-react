@@ -159,8 +159,14 @@ export default function Pedidos() {
 
   const load = () => {
     setLoading(true);
-    getOrders({ limit: 500 })
-      .then(data => setPedidos(Array.isArray(data) ? data : []))
+    Promise.all([
+      getOrders({ limit: 500 }),
+      supabase.from('v_resumo_itens_dia').select('*').order('item_code'),
+    ])
+      .then(([data, { data: itensData }]) => {
+        setPedidos(Array.isArray(data) ? data : []);
+        setResumoItens(itensData || []);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   };
@@ -269,7 +275,33 @@ export default function Pedidos() {
         </div>
       )}
 
-      {/* Resumo de itens pendentes */}
+      {/* Resumo de itens - barra inteligente */}
+      {resumoItens.length > 0 && (
+        <div style={{ background: '#0a1628', border: '1px solid #1e3a5c', borderRadius: 10, padding: '10px 16px', marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+            <span style={{ color: '#64B4FF', fontWeight: 700, fontSize: 11, whiteSpace: 'nowrap' }}>📦 RESUMO DIA:</span>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', flex: 1 }}>
+              {resumoItens.filter(i => (i.qty_pendente || 0) > 0).map(i => (
+                <span key={i.item_code} style={{ fontSize: 12 }}>
+                  <span style={{ color: '#e8f0fe', fontWeight: 700 }}>{i.qty_pendente}x {i.item_name}</span>
+                  <span style={{ color: '#90afd4' }}> ({(i.peso_pendente || 0).toFixed(0)}kg)</span>
+                </span>
+              ))}
+            </div>
+            {resumoItens.some(i => (i.qty_em_rota || 0) > 0) && (
+              <span style={{ fontSize: 11, color: '#64B4FF', whiteSpace: 'nowrap' }}>
+                🚛 Em rota: {resumoItens.reduce((s, i) => s + (i.qty_em_rota || 0), 0)} un
+              </span>
+            )}
+            {resumoItens.some(i => (i.qty_entregue || 0) > 0) && (
+              <span style={{ fontSize: 11, color: '#10b981', whiteSpace: 'nowrap' }}>
+                ✅ Entregues: {resumoItens.reduce((s, i) => s + (i.qty_entregue || 0), 0)} un
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+      {/* Pendente por TOP */}
       {(() => {
         const pendentes = pedidos.filter(p => p.status === 'pending');
         const tops = ['1000','1009','1007','1008','1010'];
@@ -283,8 +315,8 @@ export default function Pedidos() {
         const topAtivos = tops.filter(t => resumo[t]);
         if (topAtivos.length === 0) return null;
         return (
-          <div style={{ background: '#0a1628', border: '1px solid #1e3a5c', borderRadius: 10, padding: '10px 16px', marginBottom: 12 }}>
-            <span style={{ color: '#64B4FF', fontWeight: 700, fontSize: 11, marginRight: 12 }}>📦 PENDENTE POR TOP:</span>
+          <div style={{ background: '#0a1628', border: '1px solid rgba(100,180,255,0.2)', borderRadius: 10, padding: '8px 16px', marginBottom: 12 }}>
+            <span style={{ color: '#64B4FF', fontWeight: 700, fontSize: 11, marginRight: 12 }}>📊 PENDENTE POR TOP:</span>
             {topAtivos.map(t => (
               <span key={t} style={{ marginRight: 16, fontSize: 12 }}>
                 <span style={{ color: TOP_CORES[t] || '#90afd4', fontWeight: 700 }}>{TOP_LABELS[t] || t}</span>
