@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../services/supabase';
 import { RefreshCw, Shield, RotateCcw } from 'lucide-react';
-const SENHA_ADMIN = 'gelocrim2026';
+import { useAuth } from '../context/AuthContext';
 export default function Admin() {
-  const [autenticado, setAutenticado] = useState(false);
-  const [senha, setSenha] = useState('');
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [config, setConfig] = useState({});
   const [msg, setMsg] = useState('');
@@ -12,11 +11,6 @@ export default function Admin() {
   const [precoDiesel, setPrecoDiesel] = useState('7.59');
   const [tipoDiesel, setTipoDiesel] = useState('S10');
   const [salvandoDiesel, setSalvandoDiesel] = useState(false);
-
-  const verificarSenha = () => {
-    if (senha === SENHA_ADMIN) setAutenticado(true);
-    else setMsg('Senha incorreta');
-  };
 
   const load = async () => {
     setLoading(true);
@@ -44,7 +38,7 @@ export default function Admin() {
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { if (autenticado) load(); }, [autenticado]); // eslint-disable-line
+  useEffect(() => { if (user?.role === 'admin') load(); }, [user]); // eslint-disable-line
 
   const salvarPrecoDiesel = async () => {
     if (!precoDiesel || isNaN(parseFloat(precoDiesel))) { setMsg('❌ Preço inválido'); return; }
@@ -91,23 +85,18 @@ export default function Admin() {
     else setMsg('Erro: ' + error.message);
   };
 
-  if (!autenticado) return (
+  if (!user || user.role !== 'admin') return (
     <div>
       <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:24 }}>
         <Shield size={24} color="#e8521a" />
         <h1 style={{ fontSize:24, fontWeight:700 }}>Área Administrativa</h1>
       </div>
       <div className="card" style={{ maxWidth:400 }}>
-        <div style={{ fontSize:13, color:'#90afd4', marginBottom:16 }}>🔒 Acesso restrito — apenas administradores</div>
-        <div className="form-group">
-          <label className="form-label">SENHA DO SISTEMA</label>
-          <input className="form-control" type="password" value={senha} onChange={e => setSenha(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && verificarSenha()} placeholder="Digite a senha" />
+        <div style={{ fontSize:13, color:'#ef4444', marginBottom:8 }}>🚫 Acesso negado</div>
+        <div style={{ fontSize:12, color:'#90afd4' }}>
+          Sua conta não tem permissão para acessar esta área.<br/>
+          Entre em contato com o administrador do sistema.
         </div>
-        {msg && <div style={{ color:'#ef4444', fontSize:12, marginBottom:12 }}>{msg}</div>}
-        <button className="btn btn-primary" style={{ width:'100%' }} onClick={verificarSenha}>
-          <Shield size={14} /> Acessar
-        </button>
       </div>
     </div>
   );
