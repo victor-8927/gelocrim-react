@@ -71,8 +71,8 @@ function gerarHTMLDocumento(tipo, dados) {
       <div class="via-badge">${viaLabel}</div>
 
       <div class="header">
-        <div class="empresa-nome">GELOCRIM INDÚSTRIA DE GELO LTDA</div>
-        <div class="empresa-info">CNPJ: 07.252.557/0001-70 &nbsp;|&nbsp; Manaus - AM</div>
+        <div class="empresa-nome">AMAZON INDÚSTRIA DE GELO LTDA</div>
+        <div class="empresa-info">CNPJ: 02.402.867/0005-22 &nbsp;|&nbsp; Manaus - AM</div>
         <div class="doc-titulo">${titulo}</div>
       </div>
 
