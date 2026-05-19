@@ -20,7 +20,7 @@ function ModalPedido({ pedido, onFechar }) {
 
   React.useEffect(() => {
     if (!pedido) return;
-    const nf = pedido.invoice_number || pedido.external_id;
+    const nf = pedido.external_id || pedido.invoice_number;
     if (!nf) return;
     setLoadingItens(true);
     supabase.from('order_items')
