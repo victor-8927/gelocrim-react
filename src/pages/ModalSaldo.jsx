@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { supabase } from '../services/supabase';
 import { X, Plus, Trash2, Printer } from 'lucide-react';
 
@@ -10,7 +10,7 @@ const PRODUTOS = [
 ];
 
 function gerarHTMLDocumento(tipo, dados) {
-  const { cliente, itens, refNF, refOC, rota, data, analista } = dados;
+  const { cliente, itens, refNF, refOC, rota, data } = dados;
   const totalPeso = itens.reduce((s, i) => s + (i.qty * i.weight), 0);
   const totalQtd = itens.reduce((s, i) => s + i.qty, 0);
 
