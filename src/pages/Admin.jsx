@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../services/supabase';
 import { RefreshCw, Shield, RotateCcw } from 'lucide-react';
-
-const SENHA_ADMIN = 'gelocrim2026'; // senha local da área admin
-
+const SENHA_ADMIN = 'gelocrim2026';
 export default function Admin() {
   const [autenticado, setAutenticado] = useState(false);
   const [senha, setSenha] = useState('');
@@ -11,6 +9,9 @@ export default function Admin() {
   const [config, setConfig] = useState({});
   const [msg, setMsg] = useState('');
   const [stats, setStats] = useState({});
+  const [precoDiesel, setPrecoDiesel] = useState('7.59');
+  const [tipoDiesel, setTipoDiesel] = useState('S10');
+  const [salvandoDiesel, setSalvandoDiesel] = useState(false);
 
   const verificarSenha = () => {
     if (senha === SENHA_ADMIN) setAutenticado(true);
@@ -20,11 +21,12 @@ export default function Admin() {
   const load = async () => {
     setLoading(true);
     try {
-      const [rotas, pedidos, , motoristas] = await Promise.all([
+      const [rotas, pedidos, , motoristas, diesel] = await Promise.all([
         supabase.from('routes').select('id, status, trip_number, route_date').order('created_at', { ascending: false }).limit(100),
         supabase.from('orders').select('id, status').limit(1000),
         Promise.resolve({ data: [] }),
         supabase.from('drivers').select('id, status').limit(100),
+        supabase.from('configuracoes').select('chave, valor').in('chave', ['preco_diesel', 'tipo_diesel']),
       ]);
       setStats({
         totalRotas: rotas.data?.length || 0,
@@ -33,25 +35,38 @@ export default function Admin() {
         pedidosPendentes: pedidos.data?.filter(p => p.status === 'pending').length || 0,
         motoristasAtivos: motoristas.data?.filter(d => d.status === 'active').length || 0,
       });
+      if (diesel.data) {
+        const pd = diesel.data.find(c => c.chave === 'preco_diesel');
+        const td = diesel.data.find(c => c.chave === 'tipo_diesel');
+        if (pd) setPrecoDiesel(pd.valor);
+        if (td) setTipoDiesel(td.valor);
+      }
     } finally { setLoading(false); }
   };
 
   useEffect(() => { if (autenticado) load(); }, [autenticado]); // eslint-disable-line
 
+  const salvarPrecoDiesel = async () => {
+    if (!precoDiesel || isNaN(parseFloat(precoDiesel))) { setMsg('❌ Preço inválido'); return; }
+    setSalvandoDiesel(true);
+    try {
+      await supabase.from('configuracoes').upsert([
+        { chave: 'preco_diesel', valor: precoDiesel, descricao: 'Preço do litro do diesel em Manaus (R$)', updated_at: new Date().toISOString() },
+        { chave: 'tipo_diesel', valor: tipoDiesel, descricao: 'Tipo de diesel (S500 ou S10)', updated_at: new Date().toISOString() },
+      ], { onConflict: 'chave' });
+      await supabase.from('vehicles').update({ fuel_price: parseFloat(precoDiesel) });
+      setMsg('✅ Preço do diesel atualizado em todos os veículos!');
+    } catch (e) { setMsg('Erro: ' + e.message); }
+    finally { setSalvandoDiesel(false); }
+  };
+
   const resetarContadorViagens = async () => {
     if (!window.confirm('ATENÇÃO: Isso vai resetar o contador de viagens para 001. Confirmar?')) return;
     setLoading(true);
     try {
-      // Registrar o reset no banco
-      await supabase.from('routes').update({ trip_counter_reset: new Date().toISOString() }).eq('id', 'config');
-      setMsg('✅ Contador resetado! Próxima viagem será 001.');
-    } catch (e) {
-      // Guardar o reset como configuração
       await supabase.from('routes').upsert({
-        id: 'config-reset',
-        trip_number: 'RESET-' + new Date().toISOString(),
-        status: 'config',
-        route_date: new Date().toISOString().slice(0, 10),
+        id: 'config-reset', trip_number: 'RESET-' + new Date().toISOString(),
+        status: 'config', route_date: new Date().toISOString().slice(0, 10),
       });
       setMsg('✅ Reset registrado para próxima operação.');
     } finally { setLoading(false); }
@@ -61,8 +76,7 @@ export default function Admin() {
     if (!window.confirm('Limpar pedidos com mais de 30 dias já entregues?')) return;
     const dataLimite = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
     const { error } = await supabase.from('orders').delete()
-      .eq('status', 'delivered')
-      .lt('delivery_date', dataLimite);
+      .eq('status', 'delivered').lt('delivery_date', dataLimite);
     if (!error) setMsg('✅ Pedidos antigos removidos!');
     else setMsg('Erro: ' + error.message);
   };
@@ -72,8 +86,7 @@ export default function Admin() {
     const amanha = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
     const { error } = await supabase.from('routes')
       .update({ status: 'planned', updated_at: new Date().toISOString() })
-      .eq('status', 'pending')
-      .eq('route_date', amanha);
+      .eq('status', 'pending').eq('route_date', amanha);
     if (!error) { setMsg('✅ Todas as rotas de amanhã liberadas!'); load(); }
     else setMsg('Erro: ' + error.message);
   };
@@ -118,7 +131,7 @@ export default function Admin() {
         </div>
       )}
 
-      {/* KPIs do sistema */}
+      {/* KPIs */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:12, marginBottom:24 }}>
         {[
           { label:'Rotas Total', value: stats.totalRotas, cor:'#64B4FF' },
@@ -135,6 +148,40 @@ export default function Admin() {
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+
+        {/* Preço do Diesel */}
+        <div className="card">
+          <div style={{ fontSize:11, fontWeight:700, color:'#f59e0b', textTransform:'uppercase', letterSpacing:'1px', marginBottom:16 }}>
+            ⛽ PREÇO DO DIESEL — MANAUS
+          </div>
+          <div style={{ fontSize:12, color:'#90afd4', marginBottom:14, lineHeight:1.6 }}>
+            Atualiza o preço do litro em <strong style={{ color:'#e8f0fe' }}>todos os veículos</strong> automaticamente.<br/>
+            Referência: Procon Manaus (diesel S10: R$ 7,29–7,59 em abril/2026).
+          </div>
+          <div style={{ display:'flex', gap:10, marginBottom:10 }}>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:10, color:'#90afd4', marginBottom:4 }}>TIPO</div>
+              <select value={tipoDiesel} onChange={e => setTipoDiesel(e.target.value)}
+                style={{ width:'100%', background:'#0a1628', border:'1px solid #1e3a5c', color:'#e8f0fe', borderRadius:6, padding:'6px 8px', fontSize:12 }}>
+                <option value="S10">Diesel S10 (aditivado)</option>
+                <option value="S500">Diesel S500 (comum)</option>
+              </select>
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:10, color:'#90afd4', marginBottom:4 }}>PREÇO POR LITRO (R$)</div>
+              <input type="number" step="0.01" min="0" value={precoDiesel} onChange={e => setPrecoDiesel(e.target.value)}
+                style={{ width:'100%', background:'#0a1628', border:'1px solid #f59e0b', color:'#f59e0b', borderRadius:6, padding:'6px 8px', fontSize:16, fontWeight:700, textAlign:'center' }} />
+            </div>
+          </div>
+          <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:'#90afd4', marginBottom:12 }}>
+            <span>Mínimo Manaus: R$ 7,29</span>
+            <span>Máximo Manaus: R$ 7,59</span>
+          </div>
+          <button onClick={salvarPrecoDiesel} disabled={salvandoDiesel}
+            style={{ width:'100%', padding:'12px', background:'rgba(245,158,11,.15)', border:'1px solid #f59e0b', color:'#f59e0b', borderRadius:8, cursor:'pointer', fontWeight:700 }}>
+            {salvandoDiesel ? '⏳ Atualizando...' : '⛽ Atualizar Preço em Todos os Veículos'}
+          </button>
+        </div>
 
         {/* Controle de Viagens */}
         <div className="card">
@@ -181,7 +228,7 @@ export default function Admin() {
           </button>
         </div>
 
-        {/* Configurações do sistema */}
+        {/* Configurações */}
         <div className="card">
           <div style={{ fontSize:11, fontWeight:700, color:'#a78bfa', textTransform:'uppercase', letterSpacing:'1px', marginBottom:16 }}>
             ⚙️ CONFIGURAÇÕES
