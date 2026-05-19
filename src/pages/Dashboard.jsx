@@ -70,13 +70,16 @@ export default function Dashboard() {
   const falhas = pedidos.filter(p => p.status === 'failed').length;
   const total = pendentes + emRota + entregues + falhas;
   const progresso = total > 0 ? Math.round(entregues / total * 100) : 0;
-  const saldoPendente = orders.saldo_pendente || 0;
-  const saldoEntregue = orders.saldo_entregue || 0;
-  const saldoRetornado = orders.saldo_retornado || 0;
-  const pesoVenda = orders.peso_venda || 0;
-  const pesoTroca = orders.peso_troca || 0;
-  const pesoBonif = orders.peso_bonif || 0;
-  const pesoSaldo = orders.peso_saldo || 0;
+  const saldoPendente = pedidos.filter(p => p.order_type === '1010' && p.status === 'pending').length;
+  const saldoEntregue = pedidos.filter(p => p.order_type === '1010' && p.status === 'delivered').length;
+  const saldoRetornado = pedidos.filter(p => p.order_type === '1010' && p.status === 'failed').length;
+  const pesoVenda = pedidos.filter(p => p.order_type === '1000').reduce((s, p) => s + (parseFloat(p.weight_kg) || 0), 0);
+  const pesoTroca = pedidos.filter(p => p.order_type === '1009').reduce((s, p) => s + (parseFloat(p.weight_kg) || 0), 0);
+  const pesoBonif = pedidos.filter(p => p.order_type === '1007').reduce((s, p) => s + (parseFloat(p.weight_kg) || 0), 0);
+  const pesoSaldo = pedidos.filter(p => p.order_type === '1010').reduce((s, p) => s + (parseFloat(p.weight_kg) || 0), 0);
+  const valorVenda = pedidos.filter(p => p.order_type === '1000').reduce((s, p) => s + (parseFloat(p.total_value) || 0), 0);
+  const valorTroca = pedidos.filter(p => p.order_type === '1009').reduce((s, p) => s + (parseFloat(p.total_value) || 0), 0);
+  const valorBonif = pedidos.filter(p => p.order_type === '1007').reduce((s, p) => s + (parseFloat(p.total_value) || 0), 0);
 
   const rotasHoje = rotas.length;
   const paradasHoje = rotas.reduce((s, r) => s + (r.total_stops || 0), 0);
@@ -252,9 +255,9 @@ export default function Dashboard() {
         <div style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 12 }}>🧊 MIX DE CARGA POR TOP</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
           {[
-            { label: '1000 Vendas', value: pesoVenda, cor: '#10b981', emoji: '🛒', valor: orders.valor_venda || 0 },
-            { label: '1009 Trocas', value: pesoTroca, cor: '#64B4FF', emoji: '🔄', valor: orders.valor_troca || 0 },
-            { label: '1007 Bonif.', value: pesoBonif, cor: '#a78bfa', emoji: '🎁', valor: orders.valor_bonif || 0 },
+            { label: '1000 Vendas', value: pesoVenda, cor: '#10b981', emoji: '🛒', valor: valorVenda },
+            { label: '1009 Trocas', value: pesoTroca, cor: '#64B4FF', emoji: '🔄', valor: valorTroca },
+            { label: '1007 Bonif.', value: pesoBonif, cor: '#a78bfa', emoji: '🎁', valor: valorBonif },
             { label: '1010 Saldo', value: pesoSaldo, cor: '#f59e0b', emoji: '🔵', valor: 0 },
           ].map(k => (
             <div key={k.label} style={{ background: '#0a1628', borderRadius: 10, padding: 12, border: '1px solid #1e3a5c', textAlign: 'center' }}>
