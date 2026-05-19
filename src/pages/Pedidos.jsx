@@ -148,6 +148,7 @@ function ModalPedido({ pedido, onFechar }) {
 
 export default function Pedidos() {
   const [pedidos, setPedidos] = useState([]);
+  const [resumoItens, setResumoItens] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState('');
   const [status, setStatus] = useState('');
