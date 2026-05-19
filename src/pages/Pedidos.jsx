@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getOrders } from '../services/supabase';
+import { getOrders, supabase } from '../services/supabase';
 import { RefreshCw, Search, X } from 'lucide-react';
 
 const STATUS_LABELS = {
