@@ -5,6 +5,11 @@ const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || '';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// Data local de Manaus (UTC-4)
+export const hojeManaus = () => {
+  return new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString().slice(0, 10);
+};
+
 // ─── CLIENTS ─────────────────────────────────────────────────────────────────
 export const getClients = async ({ geo_zone, route, search } = {}) => {
   // Se houver busca — query direta no banco (busca nos 1290 todos)
@@ -149,6 +154,7 @@ export const deleteVehicle = async (id) => {
 export const getRoutes = async ({ date, status } = {}) => {
   let q = supabase.from('routes').select(`*, stops(*)`).order('created_at', { ascending: false });
   if (date)   q = q.eq('route_date', date);
+  else        q = q.eq('route_date', hojeManaus()); // padrão: hoje em Manaus
   if (status) q = q.eq('status', status);
   const { data, error } = await q;
   if (error) throw error;
@@ -288,7 +294,7 @@ export const deletePallet = async (id) => {
 
 // ─── DASHBOARD ───────────────────────────────────────────────────────────────
 export const getDashboardData = async (date) => {
-  const today = date || new Date().toISOString().slice(0, 10);
+  const today = date || hojeManaus();
   const [orders, routes, vehicles, drivers] = await Promise.all([
     supabase.from('orders').select('status, weight_kg').limit(1000),
     supabase.from('routes').select('status, total_stops, delivered_stops, total_distance_km').eq('route_date', today),
