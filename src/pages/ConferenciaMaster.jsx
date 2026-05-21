@@ -87,8 +87,8 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
   const [confirmado, setConfirmado] = useState(false);
   const [gravando, setGravando] = useState(false);
   const [reprocessando, setReprocessando] = useState(false);
-  const [tipoOp, setTipoOp] = useState('1viagem'); // '1viagem' | '2viagem' | 'evento'
-  const [tempoEvento, setTempoEvento] = useState(''); // horas estimadas fora
+  const [tipoOp, setTipoOp] = useState('1viagem');
+  const [tempoEvento, setTempoEvento] = useState('');
   const [conflito, setConflito] = useState(null);
   const [dragIdx, setDragIdx] = useState(null);
   const mapRef = useRef(null);
@@ -97,7 +97,6 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
   const polyRef = useRef(null);
   const dirRendererRef = useRef(null); // eslint-disable-line
 
-  // Inicializa ordem com ETAs
   useEffect(() => {
     if (clientes?.length) {
       const comEta = calcEtas(clientes, horaInicio);
@@ -105,7 +104,6 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
     }
   }, [clientes, horaInicio]);
 
-  // Inicializa mapa
   useEffect(() => {
     if (!mapRef.current || !window.google) return;
     if (!mapObj.current) {
@@ -116,14 +114,12 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
     }
   }, []);
 
-  // Atualiza mapa quando ordem muda
   const atualizarMapa = useCallback(() => {
     if (!mapObj.current || !window.google || !ordem.length) return;
     markersRef.current.forEach(m => m.setMap(null));
     markersRef.current = [];
     if (polyRef.current) { if (polyRef.current.setMap) polyRef.current.setMap(null); else if (polyRef.current.setDirections) polyRef.current.setMap(null); }
 
-    // Depósito
     const svgDep = '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#e8521a" stroke="white" stroke-width="2"/><text x="20" y="27" text-anchor="middle" fill="white" font-size="18" font-family="Arial">🏠</text></svg>';
     new window.google.maps.Marker({
       position: DEPOSITO, map: mapObj.current, title: 'Depósito Gelocrim',
@@ -152,39 +148,29 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
     });
 
     path.push(DEPOSITO);
-    
-    // Tentar usar Directions API para rota real
+
     const directionsService = new window.google.maps.DirectionsService();
     const waypoints = path.slice(1, path.length - 1).map(p => ({ location: p, stopover: true }));
-    
+
     if (waypoints.length > 0 && waypoints.length <= 23) {
       directionsService.route({
-        origin: DEPOSITO,
-        destination: DEPOSITO,
-        waypoints: waypoints,
-        optimizeWaypoints: false,
-        travelMode: window.google.maps.TravelMode.DRIVING
+        origin: DEPOSITO, destination: DEPOSITO, waypoints,
+        optimizeWaypoints: false, travelMode: window.google.maps.TravelMode.DRIVING
       }, function(result, status) {
         if (polyRef.current && polyRef.current.setMap) polyRef.current.setMap(null);
         if (status === 'OK') {
           const renderer = new window.google.maps.DirectionsRenderer({
-            map: mapObj.current,
-            suppressMarkers: true,
-            preserveViewport: false,
+            map: mapObj.current, suppressMarkers: true, preserveViewport: false,
             polylineOptions: { strokeColor: '#2563eb', strokeWeight: 5, strokeOpacity: 0.85 }
           });
           renderer.setDirections(result);
           polyRef.current = renderer;
         } else {
-          polyRef.current = new window.google.maps.Polyline({
-            path, map: mapObj.current, strokeColor: '#64B4FF', strokeOpacity: 0.8, strokeWeight: 5
-          });
+          polyRef.current = new window.google.maps.Polyline({ path, map: mapObj.current, strokeColor: '#64B4FF', strokeOpacity: 0.8, strokeWeight: 5 });
         }
       });
     } else {
-      polyRef.current = new window.google.maps.Polyline({
-        path, map: mapObj.current, strokeColor: '#64B4FF', strokeOpacity: 0.8, strokeWeight: 5
-      });
+      polyRef.current = new window.google.maps.Polyline({ path, map: mapObj.current, strokeColor: '#64B4FF', strokeOpacity: 0.8, strokeWeight: 5 });
     }
 
     mapObj.current.fitBounds(bounds);
@@ -192,7 +178,6 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
 
   useEffect(() => { atualizarMapa(); }, [atualizarMapa]);
 
-  // Calculos
   const pesoTotal = ordem.reduce((s, o) => s + (parseFloat(o.weight_kg) || (parseFloat(o.peso) || 0)), 0);
   const volTotal = ordem.reduce((s, o) => s + (parseFloat(o.volume_m3) || (parseFloat(o.weight_kg) || 0) * 0.001), 0);
   const fatTotal = ordem.reduce((s, o) => s + (parseFloat(o.total_value) || 0), 0);
@@ -213,7 +198,6 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
   const margem = fatTotal > 0 ? (lucro / fatTotal * 100) : 0;
   const corMargem = margem >= 20 ? '#10b981' : margem >= 10 ? '#f59e0b' : '#ef4444';
 
-  // ETA fim
   const ultimo = ordem[ordem.length - 1];
   const minFim = ultimo?._minutos || 0;
   const distRetorno = ultimo?.lat && ultimo?.lng ? Math.sqrt(Math.pow(-3.093544 - parseFloat(ultimo.lat), 2) + Math.pow(-60.075812 - parseFloat(ultimo.lng), 2)) * 111 : 0;
@@ -227,7 +211,6 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
 
   const equipeStr = [motorista?.name, ...ajudantes.map(a => a?.name)].filter(Boolean).join(' · ');
 
-  // Drag & Drop
   const onDragStart = (e, idx) => { setDragIdx(idx); e.dataTransfer.effectAllowed = 'move'; };
   const onDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
   const onDrop = (e, idx) => {
@@ -260,43 +243,33 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
   const reprocessar = async () => {
     setReprocessando(true);
     try {
-      const codparcs = ordem.map(o => parseInt(o.codparc)).filter(Boolean);
-      if (codparcs.length) {
-        const comGps2 = ordem.filter(function(o) { return o.lat && o.lng; });
-        if (comGps2.length < 2) { setReprocessando(false); setConfirmado(false); return; }
-        const waypoints2 = comGps2.map(function(o) {
-          return { location: { lat: parseFloat(o.lat), lng: parseFloat(o.lng) }, stopover: true };
-        });
-        const ds2 = new window.google.maps.DirectionsService();
-        ds2.route({
-          origin: DEPOSITO,
-          destination: DEPOSITO,
-          waypoints: waypoints2,
-          optimizeWaypoints: true,
-          travelMode: window.google.maps.TravelMode.DRIVING,
-        }, function(result, status) {
-          if (status === 'OK') {
-            const order2 = result.routes[0].waypoint_order;
-            const novaOrdem2 = order2.map(function(i) { return comGps2[i]; });
-            const dur2 = {};
-            result.routes[0].legs.forEach(function(leg, i) {
-              if (i < novaOrdem2.length) {
-                dur2[i] = Math.round(leg.duration.value / 60);
-                dur2['dist_' + i] = (leg.distance.value / 1000).toFixed(1);
-              }
-            });
-            setOrdem(calcEtas(novaOrdem2, horaInicio, dur2));
-          } else {
-            setOrdem(calcEtas(ordem, horaInicio));
-          }
-          setReprocessando(false);
-          setConfirmado(false);
-        });
-      } else {
-        setOrdem(calcEtas(ordem, horaInicio));
+      const comGps2 = ordem.filter(function(o) { return o.lat && o.lng; });
+      if (comGps2.length < 2) { setReprocessando(false); setConfirmado(false); return; }
+      const waypoints2 = comGps2.map(function(o) {
+        return { location: { lat: parseFloat(o.lat), lng: parseFloat(o.lng) }, stopover: true };
+      });
+      const ds2 = new window.google.maps.DirectionsService();
+      ds2.route({
+        origin: DEPOSITO, destination: DEPOSITO, waypoints: waypoints2,
+        optimizeWaypoints: true, travelMode: window.google.maps.TravelMode.DRIVING,
+      }, function(result, status) {
+        if (status === 'OK') {
+          const order2 = result.routes[0].waypoint_order;
+          const novaOrdem2 = order2.map(function(i) { return comGps2[i]; });
+          const dur2 = {};
+          result.routes[0].legs.forEach(function(leg, i) {
+            if (i < novaOrdem2.length) {
+              dur2[i] = Math.round(leg.duration.value / 60);
+              dur2['dist_' + i] = (leg.distance.value / 1000).toFixed(1);
+            }
+          });
+          setOrdem(calcEtas(novaOrdem2, horaInicio, dur2));
+        } else {
+          setOrdem(calcEtas(ordem, horaInicio));
+        }
         setReprocessando(false);
         setConfirmado(false);
-      }
+      });
     } catch (e) {
       setOrdem(calcEtas(ordem, horaInicio));
       setReprocessando(false);
@@ -307,78 +280,137 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
   const verificarConflito = async () => {
     if (!motorista?.id || !dataSaida) return null;
     const { data: rotasMotorista } = await supabase
-      .from('routes')
-      .select('trip_number, planned_start, status, total_stops, route_date')
-      .eq('driver_id', motorista.id)
-      .eq('route_date', dataSaida)
+      .from('routes').select('trip_number, planned_start, status, total_stops, route_date')
+      .eq('driver_id', motorista.id).eq('route_date', dataSaida)
       .in('status', ['pending', 'planned', 'in_progress']);
     if (!rotasMotorista || rotasMotorista.length === 0) return null;
-    // Calcular retorno estimado da última rota
     const ultimaRota = rotasMotorista[rotasMotorista.length - 1];
     const [h, m] = (ultimaRota.planned_start || '08:00').split(':').map(Number);
     const minInicio = h * 60 + m;
-    const tempoEstimado = (ultimaRota.total_stops || 3) * 40; // 40 min por parada estimado
-    const minRetorno = minInicio + tempoEstimado + 30; // +30 min tolerância
-    if (minRetorno > 20 * 60) {
-      return { tipo: 'erro', msg: 'Motorista ultrapassa 20h com rotas existentes!' };
-    }
-    const hRetorno = Math.floor(minRetorno / 60);
-    const mRetorno = minRetorno % 60;
+    const tempoEstimado = (ultimaRota.total_stops || 3) * 40;
+    const minRetornoConf = minInicio + tempoEstimado + 30;
+    if (minRetornoConf > 20 * 60) return { tipo: 'erro', msg: 'Motorista ultrapassa 20h com rotas existentes!' };
+    const hRetorno = Math.floor(minRetornoConf / 60);
+    const mRetorno = minRetornoConf % 60;
     const horaRetorno = String(hRetorno).padStart(2,'0') + ':' + String(mRetorno).padStart(2,'0');
-    return { tipo: 'aviso', msg: `Motorista já tem rota às ${ultimaRota.planned_start}. Retorno estimado: ${horaRetorno} (+30min tolerância). Hora sugerida para esta viagem: ${horaRetorno}.`, horaRetorno };
+    return { tipo: 'aviso', msg: `Motorista já tem rota às ${ultimaRota.planned_start}. Retorno estimado: ${horaRetorno}. Hora sugerida: ${horaRetorno}.`, horaRetorno };
   };
 
+  // ── GRAVAR — 1 stop por cliente + stop_items populado ──────────────────────
   const gravar = async () => {
     if (!confirmado) return;
-    // Verificar conflito de horário
+
     const conflitoDetectado = await verificarConflito();
-    if (conflitoDetectado?.tipo === 'erro') {
-      alert('❌ ' + conflitoDetectado.msg);
-      return;
-    }
+    if (conflitoDetectado?.tipo === 'erro') { alert('❌ ' + conflitoDetectado.msg); return; }
     if (conflitoDetectado?.tipo === 'aviso') {
       const ok = window.confirm('⚠️ ' + conflitoDetectado.msg + ' Deseja continuar mesmo assim?');
       if (!ok) return;
     }
+
     setGravando(true);
     try {
-      // 1. Criar rota no Supabase
+      // 1. Criar a rota
       const rota = await createRoute({
-        vehicle_id: veiculo?.id,
-        driver_id: motorista?.id,
+        vehicle_id:    veiculo?.id,
+        driver_id:     motorista?.id,
         assistant1_id: ajudantes?.[0]?.id || null,
         assistant2_id: ajudantes?.[1]?.id || null,
-        date: dataSaida,
+        date:          dataSaida,
         planned_start: horaInicio,
-        trip_type: tipoOp,
-        tempo_evento: tipoOp === 'evento' ? tempoEvento : null,
-        total_stops: ordem.length,
+        trip_type:     tipoOp,
+        tempo_evento:  tipoOp === 'evento' ? tempoEvento : null,
+        total_stops:   ordem.length,
       });
 
-      // 2. Criar stops no Supabase
-      if (rota?.id && ordem.length > 0) {
-        const stops = ordem.map((o, i) => ({
-          stop_id: `stp-${rota.id}-${i}`,
-          route_id: rota.id,
-          order_id: o.order_ids?.[0] || o.id || null,
-          sequence: i + 1,
-          recipient_name: o.recipient_name || o.name || '—',
-          address: o.address || '',
-          lat: parseFloat(o.lat) || null,
-          lng: parseFloat(o.lng) || null,
-          weight_kg: parseFloat(o.weight_kg) || 0,
-          status: 'pending',
-          eta: o._eta || null,
-          codparc: o.codparc || null,
-          created_at: new Date().toISOString(),
-        }));
-        await supabase.from('stops').insert(stops);
+      if (!rota?.id || ordem.length === 0) { alert('Erro ao criar rota.'); return; }
 
-        // 3. Atualizar status dos pedidos para 'routed'
-        const orderIds = ordem.flatMap(o => o.order_ids || []).filter(Boolean);
-        if (orderIds.length > 0) {
-          await supabase.from('orders').update({ status: 'routed', updated_at: new Date().toISOString() }).in('id', orderIds);
-        }
+      // 2. Buscar orders e order_items de todos os clientes em 2 queries
+      const todosOrderIds = ordem.flatMap(function(o) { return o.order_ids || []; }).filter(Boolean);
+
+      const { data: ordersData } = await supabase
+        .from('orders')
+        .select('id, external_id, order_type, invoice_number, payment_description, payment_type, total_value, weight_kg, codparc')
+        .in('id', todosOrderIds);
+
+      const invoiceNumbers = (ordersData || []).map(function(o) { return o.external_id; }).filter(Boolean);
+      const { data: itemsData } = await supabase
+        .from('order_items')
+        .select('invoice_number, item_type, item_name, qty, weight_unit, top_app')
+        .in('invoice_number', invoiceNumbers);
+
+      // Indexa orders por id
+      const ordersById = {};
+      (ordersData || []).forEach(function(o) { ordersById[o.id] = o; });
+
+      // Indexa order_items por invoice_number
+      const itemsByInvoice = {};
+      (itemsData || []).forEach(function(item) {
+        if (!itemsByInvoice[item.invoice_number]) itemsByInvoice[item.invoice_number] = [];
+        itemsByInvoice[item.invoice_number].push(item);
+      });
+
+      // 3. Criar 1 stop por cliente
+      const stopsParaInserir = ordem.map(function(o, i) {
+        return {
+          stop_id:        'stp-' + rota.id + '-' + i,
+          route_id:       rota.id,
+          sequence:       i + 1,
+          codparc:        o.codparc || null,
+          recipient_name: o.recipient_name || o.name || '—',
+          address:        o.address || '',
+          lat:            o.lat ? parseFloat(o.lat) : null,
+          lng:            o.lng ? parseFloat(o.lng) : null,
+          weight_kg:      parseFloat(o.weight_kg) || 0,
+          status:         'pending',
+          eta:            o._eta || null,
+          order_id:       (o.order_ids || [])[0] || null,
+          created_at:     new Date().toISOString(),
+        };
+      });
+
+      await supabase.from('stops').insert(stopsParaInserir);
+
+      // 4. Popular stop_items — todos os itens de todos os pedidos de cada cliente
+      const stopItemsParaInserir = [];
+      ordem.forEach(function(cliente, i) {
+        var stopId = 'stp-' + rota.id + '-' + i;
+        (cliente.order_ids || []).forEach(function(orderId) {
+          var order = ordersById[orderId];
+          if (!order) return;
+          var itens = itemsByInvoice[order.external_id] || [];
+          itens.forEach(function(item) {
+            stopItemsParaInserir.push({
+              stop_id:             stopId,
+              external_id:         order.external_id,
+              invoice_number:      order.invoice_number,
+              order_type:          String(order.order_type || '1000'),
+              item_name:           item.item_name,
+              item_type:           item.item_type,
+              top_app:             item.top_app || String(order.order_type),
+              payment_type:        order.payment_type || null,
+              payment_description: order.payment_description || null,
+              qty_planejada:       parseFloat(item.qty) || 0,
+              qty_entregue:        null,
+              qty_devolvida:       null,
+              motivo_devolucao:    null,
+              destino_retorno:     null,
+              status_troca:        null,
+              weight_unit:         parseFloat(item.weight_unit) || 0,
+            });
+          });
+        });
+      });
+
+      if (stopItemsParaInserir.length > 0) {
+        const { error: errItems } = await supabase.from('stop_items').insert(stopItemsParaInserir);
+        if (errItems) console.error('Erro stop_items:', errItems.message);
+      }
+
+      // 5. Marcar todos os pedidos como routed
+      if (todosOrderIds.length > 0) {
+        await supabase.from('orders')
+          .update({ status: 'routed', updated_at: new Date().toISOString() })
+          .in('id', todosOrderIds);
       }
 
       if (onGravar) onGravar(rota);
@@ -415,11 +447,9 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
             <div style={{ fontSize: 12, color: '#90afd4', marginTop: 2 }}>{ordem.length} clientes · {pesoTotal.toFixed(0)}kg · {motorista?.name || '—'}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {/* Escopo */}
             <select value={escopo} onChange={e => setEscopo(e.target.value)} style={{ background: '#0f2040', border: '1px solid #1e3a5c', color: '#e8f0fe', borderRadius: 8, padding: '6px 10px', fontSize: 12 }}>
               {escopos.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
             </select>
-            {/* Modo otimização */}
             <select value={modoOtim} onChange={e => setModoOtim(e.target.value)} style={{ background: '#0f2040', border: '1px solid #1e3a5c', color: '#e8f0fe', borderRadius: 8, padding: '6px 10px', fontSize: 12 }}>
               {modos.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
             </select>
@@ -442,7 +472,7 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
         {/* Body */}
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
-          {/* Coluna esquerda - Sequência */}
+          {/* Coluna esquerda */}
           <div style={{ width: 280, borderRight: '1px solid #1e3a5c', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
             <div style={{ padding: '10px 14px', borderBottom: '1px solid #1e3a5c', background: '#061020' }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#64B4FF', textTransform: 'uppercase', letterSpacing: '1px' }}>SEQUÊNCIA DE ENTREGAS</div>
@@ -479,7 +509,6 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
                 </div>
               ))}
             </div>
-            {/* Botões */}
             <div style={{ padding: 10, borderTop: '1px solid #1e3a5c', display: 'flex', flexDirection: 'column', gap: 8 }}>
               <button onClick={reprocessar} disabled={reprocessando} style={{ padding: '8px', background: '#1e3a5c', border: 'none', color: '#64B4FF', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
                 🔄 {reprocessando ? 'Otimizando...' : 'Reprocessar Sequência'}
@@ -505,7 +534,7 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
             <div ref={mapRef} style={{ flex: 1 }} />
           </div>
 
-          {/* Coluna direita - Indicadores */}
+          {/* Coluna direita */}
           <div style={{ width: 280, borderLeft: '1px solid #1e3a5c', overflowY: 'auto', flexShrink: 0 }}>
             <div style={{ padding: 14 }}>
 
@@ -566,14 +595,13 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
                   { label: 'Motorista', value: equipeStr || '—' },
                   { label: 'Entregas', value: `${ordem.length} paradas · ${ordem.filter(o => o.lat && o.lng).length} com GPS` },
                   { label: 'Distância', value: `${(distTotal + distRetorno).toFixed(0)} km (real)` },
-                { label: 'Capacidade', value: `${capKg.toLocaleString('pt-BR')} kg / ${parseFloat(veiculo?.capacity_m3 || 0)} m³` },
+                  { label: 'Capacidade', value: `${capKg.toLocaleString('pt-BR')} kg / ${parseFloat(veiculo?.capacity_m3 || 0)} m³` },
                 ].map(item => (
                   <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid rgba(30,58,92,.5)' }}>
                     <span style={{ fontSize: 11, color: '#90afd4' }}>{item.label}</span>
                     <span style={{ fontSize: 11, fontWeight: 600, color: '#e8f0fe', textAlign: 'right', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.value}</span>
                   </div>
                 ))}
-                {/* Peso */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid rgba(30,58,92,.5)' }}>
                   <span style={{ fontSize: 11, color: '#90afd4' }}>⚖️ Peso</span>
                   <span style={{ fontSize: 11, fontWeight: 700, color: corPeso }}>{pesoTotal.toFixed(1)} kg ({pctCap}% cap.)</span>
@@ -586,7 +614,6 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
                   <span style={{ fontSize: 11, color: '#90afd4' }}>🪵 Pallets</span>
                   <span style={{ fontSize: 11, fontWeight: 600, color: '#e8f0fe' }}>{palletsEst || '—'}</span>
                 </div>
-                {/* Barra de peso */}
                 <div style={{ height: 6, background: '#1e3a5c', borderRadius: 3, marginTop: 6, overflow: 'hidden' }}>
                   <div style={{ height: '100%', width: `${Math.min(100, pctCap)}%`, background: corPeso, borderRadius: 3, transition: 'width .5s' }} />
                 </div>
@@ -598,11 +625,11 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 10 }}>💰 MIX DE CARGA POR TOP</div>
                 {[
-                  { label: '1000 Vendas', key: '1000' },
-                  { label: '1009 Trocas', key: '1009' },
-                  { label: '1007 Bonif.', key: '1007' },
-                  { label: '1010 Pré-ped.', key: '1010' },
-                  { label: '1008 Consig.', key: '1008' },
+                  { label: '1000 Vendas',        key: '1000' },
+                  { label: '1009 Trocas',         key: '1009' },
+                  { label: '1007 Bonificação',    key: '1007' },
+                  { label: '1010 Pré-pedido',     key: '1010' },
+                  { label: 'Saldo',               key: 'saldo' },
                 ].map(top => {
                   const val = ordem.reduce((s, o) => {
                     const tipo = String(o.order_type || o.top || '');
@@ -630,24 +657,21 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 10 }}>📊 MARGEM OPERACIONAL</div>
                 {[
-                  { label: 'Custo equipe', value: custoDia > 0 ? `R$ ${custoDia.toFixed(2)}` : '⚙️ Configurar no cadastro' },
-                  { label: 'Combustível', value: custoDiesel > 0 ? `R$ ${custoDiesel.toFixed(2)}` : '⚙️ Configurar no veículo' },
-                  { label: 'Manutenção/IPVA', value: (custoManut + ipvaDia) > 0 ? `R$ ${(custoManut + ipvaDia).toFixed(2)}` : '⚙️ Configurar no veículo' },
-                  { label: 'Total custos', value: custoTotal > 0 ? `R$ ${custoTotal.toFixed(2)}` : '⚙️ Preencher cadastros' },
+                  { label: 'Custo equipe',      value: custoDia > 0 ? `R$ ${custoDia.toFixed(2)}` : '⚙️ Configurar no cadastro' },
+                  { label: 'Combustível',        value: custoDiesel > 0 ? `R$ ${custoDiesel.toFixed(2)}` : '⚙️ Configurar no veículo' },
+                  { label: 'Manutenção/IPVA',    value: (custoManut + ipvaDia) > 0 ? `R$ ${(custoManut + ipvaDia).toFixed(2)}` : '⚙️ Configurar no veículo' },
+                  { label: 'Total custos',       value: custoTotal > 0 ? `R$ ${custoTotal.toFixed(2)}` : '⚙️ Preencher cadastros' },
                 ].map(item => (
                   <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid rgba(30,58,92,.5)' }}>
                     <span style={{ fontSize: 11, color: '#90afd4' }}>{item.label}</span>
                     <span style={{ fontSize: 11, color: '#e8f0fe' }}>{item.value}</span>
                   </div>
                 ))}
-
-                {/* Semáforo margem */}
                 <div style={{ marginTop: 10, padding: 10, background: margem >= 20 ? 'rgba(16,185,129,.15)' : margem >= 10 ? 'rgba(245,158,11,.15)' : 'rgba(248,113,113,.15)', borderRadius: 8, border: `1px solid ${corMargem}`, textAlign: 'center' }}>
                   <div style={{ fontSize: 20 }}>{fatTotal === 0 ? '⚠️' : margem >= 20 ? '🟢' : margem >= 10 ? '🟡' : '🔴'}</div>
                   <div style={{ fontSize: 18, fontWeight: 700, color: corMargem }}>{fatTotal > 0 ? `${margem.toFixed(1)}%` : '—'}</div>
                   <div style={{ fontSize: 10, color: '#90afd4' }}>{fatTotal > 0 ? 'Margem Operacional' : 'Complete os cadastros para calcular'}</div>
                 </div>
-
                 {margem < 0 && fatTotal > 0 && (
                   <div style={{ marginTop: 8 }}>
                     <div style={{ fontSize: 10, color: '#ef4444', marginBottom: 4 }}>⚠️ Margem Negativa — Justificativa Obrigatória</div>
@@ -656,7 +680,6 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
                 )}
               </div>
 
-              {/* Romaneio */}
               <button onClick={() => window.print()} style={{ width: '100%', padding: '8px', background: '#1e3a5c', border: 'none', color: '#64B4FF', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
                 🖨️ Gerar Romaneio PDF
               </button>

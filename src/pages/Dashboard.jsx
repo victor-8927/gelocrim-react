@@ -6,16 +6,18 @@ import { useNavigate } from 'react-router-dom';
 const DEPOSITO = { lat: -3.093544, lng: -60.075812 };
 
 export default function Dashboard() {
-  const [pedidos, setPedidos] = useState([]);
-  const [rotas, setRotas] = useState([]);
-  const [veiculos, setVeiculos] = useState([]);
+  const [pedidos, setPedidos]     = useState([]);
+  const [rotas, setRotas]         = useState([]);
+  const [veiculos, setVeiculos]   = useState([]);
   const [motoristas, setMotoristas] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [hora, setHora] = useState(new Date());
-  const mapRef = useRef(null);
-  const mapObj = useRef(null);
+  const [loading, setLoading]     = useState(true);
+  const [hora, setHora]           = useState(new Date());
+  const mapRef  = useRef(null);
+  const mapObj  = useRef(null);
   const navigate = useNavigate();
-  const today = new Date().toISOString().slice(0, 10);
+
+  // Data hoje em Manaus (UTC-4)
+  const hojeManaus = () => new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   const diasSemana = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
   const meses = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
@@ -31,8 +33,8 @@ export default function Dashboard() {
     setLoading(true);
     try {
       const [p, r, v, d] = await Promise.all([
-        getOrders({ status: 'pending', limit: 500 }).catch(() => []),
-        getRoutes({ date: today }).catch(() => []),
+        getOrders({ limit: 1000 }).catch(() => []),
+        getRoutes({ date: hojeManaus() }).catch(() => []),
         getVehicles().catch(() => []),
         getDrivers().catch(() => []),
       ]);
@@ -60,48 +62,66 @@ export default function Dashboard() {
     }
   }, []);
 
-  // Calculos
-  const pendentes = pedidos.filter(p => p.status === 'pending').length;
-  const emRota = pedidos.filter(p => p.status === 'routed').length;
-  const entregues = pedidos.filter(p => p.status === 'delivered').length;
-  const atrasados = pedidos.filter(p => p.status === 'late' || p.status === 'delayed').length;
-  const devolvidos = pedidos.filter(p => p.status === 'returned').length;
-  const reprogramados = pedidos.filter(p => p.status === 'rescheduled').length;
-  const falhas = pedidos.filter(p => p.status === 'failed').length;
-  const total = pendentes + emRota + entregues + falhas;
-  const progresso = total > 0 ? Math.round(entregues / total * 100) : 0;
-  const saldoPendente = pedidos.filter(p => p.is_saldo && p.status === 'pending').length;
-  const saldoEntregue = pedidos.filter(p => p.is_saldo && p.status === 'delivered').length;
-  const saldoRetornado = pedidos.filter(p => p.is_saldo && p.status === 'failed').length;
-  const pesoVenda = pedidos.filter(p => p.order_type === '1000' && !p.is_saldo).reduce((s, p) => s + (parseFloat(p.weight_kg) || 0), 0);
-  const pesoTroca = pedidos.filter(p => p.order_type === '1009' && !p.is_saldo).reduce((s, p) => s + (parseFloat(p.weight_kg) || 0), 0);
-  const pesoBonif = pedidos.filter(p => p.order_type === '1007' && !p.is_saldo).reduce((s, p) => s + (parseFloat(p.weight_kg) || 0), 0);
-  const pesoSaldo = pedidos.filter(p => p.is_saldo).reduce((s, p) => s + (parseFloat(p.weight_kg) || 0), 0);
-  const valorVenda = pedidos.filter(p => p.order_type === '1000' && !p.is_saldo).reduce((s, p) => s + (parseFloat(p.total_value) || 0), 0);
-  const valorTroca = pedidos.filter(p => p.order_type === '1009' && !p.is_saldo).reduce((s, p) => s + (parseFloat(p.total_value) || 0), 0);
-  const valorBonif = pedidos.filter(p => p.order_type === '1007' && !p.is_saldo).reduce((s, p) => s + (parseFloat(p.total_value) || 0), 0);
+  // ── PEDIDOS ──────────────────────────────────────────────────────────────────
+  const pendentes    = pedidos.filter(p => p.status === 'pending').length;
+  const emRota       = pedidos.filter(p => p.status === 'routed').length;
+  const entregues    = pedidos.filter(p => p.status === 'delivered').length;
+  const falhas       = pedidos.filter(p => p.status === 'failed').length;
+  const reentregas   = pedidos.filter(p => p.status === 'rescheduled').length;
+  const total        = pendentes + emRota + entregues + falhas;
+  const progresso    = total > 0 ? Math.round(entregues / total * 100) : 0;
 
-  const rotasHoje = rotas.length;
+  // Saldo — usa is_saldo quando disponível, senão order_type 1010
+  const saldoPendente  = pedidos.filter(p => (p.is_saldo || p.order_type === '1010') && p.status === 'pending').length;
+  const saldoEntregue  = pedidos.filter(p => (p.is_saldo || p.order_type === '1010') && p.status === 'delivered').length;
+  const saldoRetornado = pedidos.filter(p => (p.is_saldo || p.order_type === '1010') && p.status === 'failed').length;
+
+  // Mix de carga por TOP — 1000=Venda, 1009=Troca, 1007=Bonificação, 1010=Pré-pedido
+  const pesoVenda  = pedidos.filter(p => p.order_type === '1000').reduce((s, p) => s + (parseFloat(p.weight_kg) || 0), 0);
+  const pesoTroca  = pedidos.filter(p => p.order_type === '1009').reduce((s, p) => s + (parseFloat(p.weight_kg) || 0), 0);
+  const pesoBonif  = pedidos.filter(p => p.order_type === '1007').reduce((s, p) => s + (parseFloat(p.weight_kg) || 0), 0);
+  const pesoPrePed = pedidos.filter(p => p.order_type === '1010').reduce((s, p) => s + (parseFloat(p.weight_kg) || 0), 0);
+
+  const valorVenda = pedidos.filter(p => p.order_type === '1000').reduce((s, p) => s + (parseFloat(p.total_value) || 0), 0);
+  const valorTroca = pedidos.filter(p => p.order_type === '1009').reduce((s, p) => s + (parseFloat(p.total_value) || 0), 0);
+  const valorBonif = pedidos.filter(p => p.order_type === '1007').reduce((s, p) => s + (parseFloat(p.total_value) || 0), 0);
+
+  // ── ROTAS ────────────────────────────────────────────────────────────────────
+  const rotasHoje   = rotas.length;
   const paradasHoje = rotas.reduce((s, r) => s + (r.total_stops || 0), 0);
-  const kmHoje = rotas.reduce((s, r) => s + parseFloat(r.total_km || 0), 0);
-  const veicAtivos = veiculos.filter(v => v.status === 'active').length;
-  const motorEmCampo = motoristas.filter(m => m.type === 'driver' && m.status === 'active').length;
+  const veicAtivos  = veiculos.filter(v => v.status === 'active').length;
+  const motoristas_ = motoristas.filter(m => m.type === 'driver').length;
 
-  const fatTotal = rotas.reduce((s, r) => s + parseFloat(r.total_value || 0), 0);
-  const custoTotal = rotas.reduce((s, r) => s + parseFloat(r.total_cost || 0), 0);
-  const margem = fatTotal > 0 ? (fatTotal - custoTotal) / fatTotal * 100 : 0;
-  const kmPerLiter = 3;
-  const fuelPrice = 7.59;
-  const custoDiesel = kmHoje / kmPerLiter * fuelPrice;
-  const custoEntrega = entregues > 0 ? custoTotal / entregues : 0;
+  // KM percorrido real — km_end - km_start (só rotas que encerraram)
+  const kmHoje = rotas.reduce((s, r) => {
+    const inicio = parseFloat(r.km_start || 0);
+    const fim    = parseFloat(r.km_end || 0);
+    return s + (fim > inicio ? fim - inicio : 0);
+  }, 0);
 
-  const canhotos = rotas.reduce((s, r) => s + (r.pending_receipts || 0), 0);
+  // Custo diesel baseado em KM real
+  const kmPerLiter  = 3;
+  const fuelPrice   = 7.59;
+  const custoDiesel = kmHoje > 0 ? (kmHoje / kmPerLiter) * fuelPrice : 0;
+
+  // Canhotos pendentes — stops delivered sem photo_receipt
+  const canhotos = rotas.reduce((s, r) => {
+    const stops = r.stops || [];
+    return s + stops.filter(st => st.status === 'delivered' && !st.photo_receipt).length;
+  }, 0);
+
+  // Retornos — stops com status failed ou rescheduled
+  const retornos = rotas.reduce((s, r) => {
+    const stops = r.stops || [];
+    return s + stops.filter(st => st.status === 'failed').length;
+  }, 0);
+
+  // Rotas longas — em campo há mais de 8h
   const rotasLongas = rotas.filter(r => {
-    if (!r.start_time) return false;
-    const [h, m] = r.start_time.split(':').map(Number);
-    const start = h * 60 + m;
-    const agora = now.getHours() * 60 + now.getMinutes();
-    return (agora - start) > 480;
+    if (!r.started_at || r.status !== 'in_progress') return false;
+    const inicio = new Date(r.started_at);
+    const agora  = new Date();
+    return (agora - inicio) > 8 * 60 * 60 * 1000;
   }).length;
 
   const horaStr = hora.toLocaleTimeString('pt-BR');
@@ -132,87 +152,60 @@ export default function Dashboard() {
           <div style={{ height: '100%', width: `${progresso}%`, background: progresso >= 80 ? '#10b981' : progresso >= 50 ? '#f59e0b' : '#64B4FF', borderRadius: 5, transition: 'width .5s' }} />
         </div>
         <div style={{ fontSize: 12, color: '#90afd4' }}>{entregues} entregues · {total} total</div>
-        {margem < 10 && margem > 0 && (
-          <div style={{ marginTop: 8, padding: '6px 12px', background: 'rgba(239,68,68,.1)', border: '1px solid #ef4444', borderRadius: 8, fontSize: 12, color: '#ef4444' }}>
-            ⚠️ Margem operacional abaixo de 10% — revisar custos
-          </div>
-        )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+      {/* Grid principal */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
-        {/* Pedidos */}
-        <div className="card">
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#64B4FF', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 12 }}>📦 PEDIDOS</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {[
-              { emoji: '📦', label: 'Pendentes', value: pendentes, sub: 'aguardando roteirização', cor: '#f59e0b' },
-              { emoji: '🚛', label: 'Em Rota', value: emRota, sub: 'em trânsito agora', cor: '#64B4FF' },
-              { emoji: '✅', label: 'Entregues', value: entregues, sub: 'concluídos hoje', cor: '#10b981' },
-              { emoji: '⏰', label: 'Em Atraso', value: atrasados, sub: 'acima do prazo', cor: '#ef4444' },
-              { emoji: '↩️', label: 'Devolvidos', value: devolvidos, sub: 'retornaram à base', cor: '#a78bfa' },
-              { emoji: '📅', label: 'Reprogramados', value: reprogramados, sub: 'nova data de entrega', cor: '#90afd4' },
-              { emoji: '🔵', label: 'Saldo Pendente', value: saldoPendente, sub: 'complemento pendente', cor: '#64B4FF' },
-              { emoji: '✅', label: 'Saldo Entregue', value: saldoEntregue, sub: 'complemento entregue', cor: '#10b981' },
-              { emoji: '↩️', label: 'Saldo Retornado', value: saldoRetornado, sub: 'cliente recusou saldo', cor: '#ef4444' },
-            ].map(k => (
-              <div key={k.label} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid rgba(30,58,92,.5)' }}>
-                <span style={{ fontSize: 18 }}>{k.emoji}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600 }}>{k.label}</div>
+        {/* Coluna esquerda */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Pedidos */}
+          <div className="card">
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64B4FF', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 12 }}>📦 PEDIDOS DO DIA</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+              {[
+                { emoji: '📦', label: 'Pendentes',   value: pendentes,  cor: '#f59e0b', sub: 'aguardando rota' },
+                { emoji: '🚛', label: 'Em Rota',     value: emRota,     cor: '#64B4FF', sub: 'saídos hoje' },
+                { emoji: '✅', label: 'Entregues',   value: entregues,  cor: '#10b981', sub: 'concluídos' },
+                { emoji: '❌', label: 'Falhas',      value: falhas,     cor: '#ef4444', sub: 'não entregues' },
+                { emoji: '🔄', label: 'Reentregas',  value: reentregas, cor: '#a78bfa', sub: 'remarcados' },
+                { emoji: '🔵', label: 'Saldo Pend.', value: saldoPendente, cor: '#64B4FF', sub: 'saldos abertos' },
+              ].map(k => (
+                <div key={k.label} style={{ background: '#0a1628', borderRadius: 10, padding: 10, border: '1px solid #1e3a5c', textAlign: 'center' }}>
+                  <div style={{ fontSize: 16 }}>{k.emoji}</div>
+                  <div style={{ fontSize: 10, color: '#90afd4', marginBottom: 2 }}>{k.label}</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: k.cor }}>{k.value}</div>
                   <div style={{ fontSize: 10, color: '#90afd4' }}>{k.sub}</div>
                 </div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: k.cor }}>{k.value}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Operação */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div className="card">
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#f97316', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 12 }}>🚛 OPERAÇÃO</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {[
-                { emoji: '🗺️', label: 'Rotas de Hoje', value: rotasHoje, sub: `${paradasHoje} paradas`, cor: '#64B4FF' },
-                { emoji: '🚐', label: 'Frotas Ativas', value: veicAtivos, sub: `${motorEmCampo} motoristas em campo`, cor: '#10b981' },
-                { emoji: '📍', label: 'KM Percorridos', value: `${kmHoje.toFixed(0)} km`, sub: 'total do dia', cor: '#a78bfa' },
-              ].map(k => (
-                <div key={k.label} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid rgba(30,58,92,.5)' }}>
-                  <span style={{ fontSize: 18 }}>{k.emoji}</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600 }}>{k.label}</div>
-                    <div style={{ fontSize: 10, color: '#90afd4' }}>{k.sub}</div>
-                  </div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: k.cor }}>{k.value}</div>
-                </div>
               ))}
             </div>
           </div>
 
+          {/* Operação */}
           <div className="card">
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#10b981', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 12 }}>💰 FINANCEIRO</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64B4FF', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 12 }}>🚛 OPERAÇÃO</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8 }}>
               {[
-                { emoji: '💵', label: 'Faturamento', value: fatTotal > 0 ? `R$ ${(fatTotal/1000).toFixed(1)}k` : 'R$ 0.0k', sub: 'estimado hoje', cor: '#10b981' },
-                { emoji: '📊', label: 'Margem Op.', value: `${margem.toFixed(1)}%`, sub: 'rentabilidade', cor: margem >= 20 ? '#10b981' : margem >= 10 ? '#f59e0b' : '#ef4444' },
-                { emoji: '⛽', label: 'Custo Diesel', value: `R$ ${custoDiesel.toFixed(0)}`, sub: `${(kmHoje / kmPerLiter).toFixed(0)}L · R$${fuelPrice}/L`, cor: '#f59e0b' },
-                { emoji: '💲', label: 'Custo/Entrega', value: custoEntrega > 0 ? `R$ ${custoEntrega.toFixed(0)}` : 'R$ —', sub: 'eficiência da operação', cor: '#64B4FF' },
+                { emoji: '🗺️', label: 'Rotas Hoje',    value: rotasHoje,                       cor: '#64B4FF',  sub: 'criadas' },
+                { emoji: '📍', label: 'Paradas',       value: paradasHoje,                      cor: '#a78bfa',  sub: 'total' },
+                { emoji: '🛣️', label: 'KM Percorrido', value: kmHoje > 0 ? kmHoje.toFixed(0) + ' km' : '—', cor: '#f59e0b', sub: 'real hoje' },
+                { emoji: '⛽', label: 'Custo Diesel',  value: custoDiesel > 0 ? 'R$ ' + custoDiesel.toFixed(0) : '—', cor: '#ef4444', sub: 'estimado' },
+                { emoji: '🚐', label: 'Frota Ativa',   value: veicAtivos,                       cor: '#10b981',  sub: 'veículos' },
+                { emoji: '👨‍💼', label: 'Motoristas',   value: motoristas_,                      cor: '#10b981',  sub: 'cadastrados' },
               ].map(k => (
-                <div key={k.label} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: '1px solid rgba(30,58,92,.5)' }}>
-                  <span style={{ fontSize: 16 }}>{k.emoji}</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600 }}>{k.label}</div>
-                    <div style={{ fontSize: 10, color: '#90afd4' }}>{k.sub}</div>
-                  </div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: k.cor }}>{k.value}</div>
+                <div key={k.label} style={{ background: '#0a1628', borderRadius: 10, padding: 10, border: '1px solid #1e3a5c', textAlign: 'center' }}>
+                  <div style={{ fontSize: 14 }}>{k.emoji}</div>
+                  <div style={{ fontSize: 10, color: '#90afd4', marginBottom: 2 }}>{k.label}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: k.cor }}>{k.value}</div>
+                  <div style={{ fontSize: 10, color: '#90afd4' }}>{k.sub}</div>
                 </div>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Mapa + alertas */}
+        {/* Coluna direita — Mapa + Alertas */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Mapa */}
           <div className="card" style={{ padding: 0, overflow: 'hidden', flex: 1, minHeight: 200 }}>
@@ -227,7 +220,7 @@ export default function Dashboard() {
           <div className="card">
             <div style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 10 }}>⚡ ALERTAS PREDITIVOS</div>
             {canhotos === 0 && rotasLongas === 0 ? (
-              <div style={{ fontSize: 12, color: '#10b981' }}>✅ Nenhum alerta preditivo no momento</div>
+              <div style={{ fontSize: 12, color: '#10b981' }}>✅ Nenhum alerta no momento</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {rotasLongas > 0 && <div style={{ fontSize: 12, color: '#ef4444', padding: '6px 10px', background: 'rgba(239,68,68,.1)', borderRadius: 6 }}>⏰ {rotasLongas} rota(s) +8h em campo</div>}
@@ -255,10 +248,10 @@ export default function Dashboard() {
         <div style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 12 }}>🧊 MIX DE CARGA POR TOP</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
           {[
-            { label: '1000 Vendas', value: pesoVenda, cor: '#10b981', emoji: '🛒', valor: valorVenda },
-            { label: '1009 Trocas', value: pesoTroca, cor: '#64B4FF', emoji: '🔄', valor: valorTroca },
-            { label: '1007 Bonif.', value: pesoBonif, cor: '#a78bfa', emoji: '🎁', valor: valorBonif },
-            { label: '1010 Saldo', value: pesoSaldo, cor: '#f59e0b', emoji: '🔵', valor: 0 },
+            { label: '1000 Vendas',      value: pesoVenda,  cor: '#10b981', emoji: '🛒', valor: valorVenda },
+            { label: '1009 Trocas',      value: pesoTroca,  cor: '#f59e0b', emoji: '🔄', valor: valorTroca },
+            { label: '1007 Bonificação', value: pesoBonif,  cor: '#a78bfa', emoji: '🎁', valor: valorBonif },
+            { label: '1010 Pré-pedido',  value: pesoPrePed, cor: '#64B4FF', emoji: '📋', valor: 0 },
           ].map(k => (
             <div key={k.label} style={{ background: '#0a1628', borderRadius: 10, padding: 12, border: '1px solid #1e3a5c', textAlign: 'center' }}>
               <div style={{ fontSize: 16, marginBottom: 4 }}>{k.emoji}</div>
@@ -270,7 +263,7 @@ export default function Dashboard() {
         </div>
         {saldoRetornado > 0 && (
           <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(239,68,68,.1)', border: '1px solid #ef4444', borderRadius: 8, fontSize: 12, color: '#ef4444' }}>
-            ⚠️ {saldoRetornado} saldo(s) retornaram — cliente recusou a entrega complementar
+            ⚠️ {saldoRetornado} saldo(s) retornaram — cliente recusou entrega complementar
           </div>
         )}
       </div>
@@ -284,20 +277,21 @@ export default function Dashboard() {
         <table>
           <thead>
             <tr>
-              <th>Veículo</th><th>Motorista</th><th>Paradas</th><th>⏱️ Início</th><th>Status</th>
+              <th>Veículo</th><th>Motorista</th><th>Paradas</th><th>⏱️ Início</th><th>KM</th><th>Status</th>
             </tr>
           </thead>
           <tbody>
             {rotas.length === 0 ? (
-              <tr><td colSpan={5} style={{ textAlign: 'center', color: '#90afd4', padding: 20 }}>Nenhuma rota hoje</td></tr>
+              <tr><td colSpan={6} style={{ textAlign: 'center', color: '#90afd4', padding: 20 }}>Nenhuma rota hoje</td></tr>
             ) : rotas.slice(0, 8).map(r => {
-              const done = r.completed_stops || 0;
+              const done  = r.completed_stops || 0;
               const total = r.total_stops || 0;
-              const pct = total > 0 ? Math.round(done / total * 100) : 0;
+              const pct   = total > 0 ? Math.round(done / total * 100) : 0;
+              const kmReal = (parseFloat(r.km_end || 0) - parseFloat(r.km_start || 0));
               return (
                 <tr key={r.id}>
-                  <td style={{ fontWeight: 600, fontSize: 12 }}>{r.vehicle_name || r.vehicle?.plate || '—'}</td>
-                  <td style={{ fontSize: 12, color: '#90afd4' }}>{r.driver_name || r.driver?.name || '—'}</td>
+                  <td style={{ fontWeight: 600, fontSize: 12 }}>{r.vehicle_name || '—'}</td>
+                  <td style={{ fontSize: 12, color: '#90afd4' }}>{r.driver_name || '—'}</td>
                   <td style={{ fontSize: 12 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <div style={{ width: 60, height: 4, background: '#1e3a5c', borderRadius: 2, overflow: 'hidden' }}>
@@ -306,7 +300,8 @@ export default function Dashboard() {
                       <span style={{ color: '#90afd4' }}>{done}/{total}</span>
                     </div>
                   </td>
-                  <td style={{ fontSize: 12, color: '#90afd4' }}>{r.planned_start || r.start_time || '—'}</td>
+                  <td style={{ fontSize: 12, color: '#90afd4' }}>{r.planned_start || '—'}</td>
+                  <td style={{ fontSize: 12, color: kmReal > 0 ? '#f59e0b' : '#90afd4' }}>{kmReal > 0 ? kmReal.toFixed(0) + ' km' : '—'}</td>
                   <td>
                     <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, fontWeight: 700,
                       background: r.status === 'completed' ? 'rgba(16,185,129,.2)' : r.status === 'in_progress' ? 'rgba(249,115,22,.2)' : 'rgba(100,180,255,.2)',
@@ -325,18 +320,19 @@ export default function Dashboard() {
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '1px' }}>↩️ Retorno de Produtos</span>
-          <button style={{ background: 'none', border: 'none', color: '#64B4FF', fontSize: 12, cursor: 'pointer' }}>Detalhar</button>
+          <button onClick={() => navigate('/rotas')} style={{ background: 'none', border: 'none', color: '#64B4FF', fontSize: 12, cursor: 'pointer' }}>Detalhar</button>
         </div>
         <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: devolvidos > 0 ? '#ef4444' : '#10b981' }}>{devolvidos}</div>
-            <div style={{ fontSize: 11, color: '#90afd4' }}>itens hoje</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: retornos > 0 ? '#ef4444' : '#10b981' }}>{retornos}</div>
+            <div style={{ fontSize: 11, color: '#90afd4' }}>paradas recusadas hoje</div>
           </div>
-          <div style={{ fontSize: 12, color: devolvidos > 0 ? '#ef4444' : '#10b981' }}>
-            {devolvidos > 0 ? `⚠️ ${devolvidos} retorno(s) registrado(s)` : '✅ Sem retornos'}
+          <div style={{ fontSize: 12, color: retornos > 0 ? '#ef4444' : '#10b981' }}>
+            {retornos > 0 ? `⚠️ ${retornos} entrega(s) não realizadas` : '✅ Sem retornos hoje'}
           </div>
         </div>
       </div>
+
     </div>
   );
 }
