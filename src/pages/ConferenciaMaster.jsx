@@ -631,9 +631,16 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
                   { label: '1010 Pré-pedido',     key: '1010' },
                   { label: 'Saldo',               key: 'saldo' },
                 ].map(top => {
+                  // Calcula por pedido individual — cliente pode ter múltiplos TOPs
                   const val = ordem.reduce((s, o) => {
+                    const pedidos = Array.isArray(o.pedidos) ? o.pedidos : [];
+                    if (pedidos.length > 0) {
+                      return s + pedidos
+                        .filter(p => String(p.order_type) === top.key)
+                        .reduce((ps, p) => ps + (parseFloat(p.total_value) || 0), 0);
+                    }
                     const tipo = String(o.order_type || o.top || '');
-                    if (tipo === top.key || tipo.includes(top.key)) return s + (parseFloat(o.total_value) || 0);
+                    if (tipo === top.key) return s + (parseFloat(o.total_value) || 0);
                     return s;
                   }, 0);
                   return (

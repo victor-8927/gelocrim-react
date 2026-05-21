@@ -66,7 +66,7 @@ export default function Roteirizacao() {
       ]);
 
       const ordersArr = Array.isArray(orders) ? orders : [];
-      const clisArr = Array.isArray(clis) ? clis : [];
+      const clisArr   = Array.isArray(clis)   ? clis   : [];
       const cliMap = {};
       clisArr.forEach(c => { if (c.codparc) cliMap[c.codparc] = c; });
 
@@ -77,28 +77,35 @@ export default function Roteirizacao() {
         const cli = cliMap[o.codparc];
         if (!clienteMap[key]) {
           clienteMap[key] = {
-            id: `cli-${o.codparc || key}`,
-            codparc: o.codparc,
+            id:             `cli-${o.codparc || key}`,
+            codparc:        o.codparc,
             recipient_name: cli?.name || o.recipient_name || '—',
-            address: cli?.address || o.address || '',
-            lat: cli?.lat ? parseFloat(cli.lat) : null,
-            lng: cli?.lng ? parseFloat(cli.lng) : null,
-            rota: cli?.route || '',
-            regiao: cli?.geo_zone || '',
-            bairro: cli?.district || '',
-            service_time: parseInt(cli?.service_time) || 20,
-            order_ids: [],
-            pedidos: [],
-            weight_kg: 0,
-            volume_m3: 0,
-            order_type: o.order_type || '',
-            total_value: 0,
+            address:        cli?.address || o.address || '',
+            lat:            cli?.lat ? parseFloat(cli.lat) : null,
+            lng:            cli?.lng ? parseFloat(cli.lng) : null,
+            rota:           cli?.route || '',
+            regiao:         cli?.geo_zone || '',
+            bairro:         cli?.district || '',
+            service_time:   parseInt(cli?.service_time) || 20,
+            order_ids:      [],
+            // pedidos: array com objeto completo de cada pedido — necessário para mix por TOP
+            pedidos:        [],
+            weight_kg:      0,
+            volume_m3:      0,
+            total_value:    0,
           };
         }
         clienteMap[key].order_ids.push(o.id);
-        clienteMap[key].pedidos.push(o.external_id || o.id);
-        clienteMap[key].weight_kg += parseFloat(o.weight_kg) || 0;
-        clienteMap[key].volume_m3 += parseFloat(o.volume_m3) || 0;
+        // Guarda objeto completo para calcular mix por TOP corretamente
+        clienteMap[key].pedidos.push({
+          id:          o.id,
+          external_id: o.external_id,
+          order_type:  String(o.order_type || '1000'),
+          total_value: parseFloat(o.total_value) || 0,
+          weight_kg:   parseFloat(o.weight_kg)   || 0,
+        });
+        clienteMap[key].weight_kg   += parseFloat(o.weight_kg)   || 0;
+        clienteMap[key].volume_m3   += parseFloat(o.volume_m3)   || 0;
         clienteMap[key].total_value += parseFloat(o.total_value) || 0;
       });
 
@@ -106,9 +113,7 @@ export default function Roteirizacao() {
       setClientes(items);
       setStatus(`${items.length} clientes no mapa`);
 
-      const veicsArr = Array.isArray(veics) ? veics : [];
-      setVeiculos(veicsArr);
-
+      setVeiculos(Array.isArray(veics) ? veics : []);
       const drivsArr = Array.isArray(drivs) ? drivs : [];
       setMotoristas(drivsArr.filter(d => d.type === 'driver'));
       setAjudantes(drivsArr.filter(d => d.type === 'assistant'));
@@ -134,14 +139,12 @@ export default function Roteirizacao() {
         icon: { path: window.google.maps.SymbolPath.CIRCLE, scale: 12, fillColor: '#e8521a', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 }
       });
 
-      // Drawing Manager
       if (window.google.maps.drawing) {
         const dm = new window.google.maps.drawing.DrawingManager({
-          drawingMode: null,
-          drawingControl: false,
-          polygonOptions: { fillColor: '#64B4FF', fillOpacity: 0.2, strokeColor: '#64B4FF', strokeWeight: 2 },
-          rectangleOptions: { fillColor: '#64B4FF', fillOpacity: 0.2, strokeColor: '#64B4FF', strokeWeight: 2 },
-          circleOptions: { fillColor: '#64B4FF', fillOpacity: 0.2, strokeColor: '#64B4FF', strokeWeight: 2 },
+          drawingMode: null, drawingControl: false,
+          polygonOptions:  { fillColor: '#64B4FF', fillOpacity: 0.2, strokeColor: '#64B4FF', strokeWeight: 2 },
+          rectangleOptions:{ fillColor: '#64B4FF', fillOpacity: 0.2, strokeColor: '#64B4FF', strokeWeight: 2 },
+          circleOptions:   { fillColor: '#64B4FF', fillOpacity: 0.2, strokeColor: '#64B4FF', strokeWeight: 2 },
         });
         dm.setMap(mapObj.current);
         mapObj.current._drawingManager = dm;
@@ -153,13 +156,9 @@ export default function Roteirizacao() {
               if (c.lat && c.lng) {
                 const ponto = new window.google.maps.LatLng(c.lat, c.lng);
                 let dentro = false;
-                if (shape.type === 'polygon') {
-                  dentro = window.google.maps.geometry.poly.containsLocation(ponto, shape);
-                } else if (shape.type === 'rectangle') {
-                  dentro = shape.getBounds().contains(ponto);
-                } else if (shape.type === 'circle') {
-                  dentro = window.google.maps.geometry.spherical.computeDistanceBetween(ponto, shape.getCenter()) <= shape.getRadius();
-                }
+                if (shape.type === 'polygon')   dentro = window.google.maps.geometry.poly.containsLocation(ponto, shape);
+                else if (shape.type === 'rectangle') dentro = shape.getBounds().contains(ponto);
+                else if (shape.type === 'circle')    dentro = window.google.maps.geometry.spherical.computeDistanceBetween(ponto, shape.getCenter()) <= shape.getRadius();
                 if (dentro) novos[c.id] = c;
               }
             });
@@ -171,9 +170,9 @@ export default function Roteirizacao() {
           setModoSel('individual');
         };
 
-        window.google.maps.event.addListener(dm, 'polygoncomplete', shape => { shape.type = 'polygon'; handleShape(shape); });
+        window.google.maps.event.addListener(dm, 'polygoncomplete',   shape => { shape.type = 'polygon';   handleShape(shape); });
         window.google.maps.event.addListener(dm, 'rectanglecomplete', shape => { shape.type = 'rectangle'; handleShape(shape); });
-        window.google.maps.event.addListener(dm, 'circlecomplete', shape => { shape.type = 'circle'; handleShape(shape); });
+        window.google.maps.event.addListener(dm, 'circlecomplete',    shape => { shape.type = 'circle';    handleShape(shape); });
       }
     }
   }, []);
@@ -185,10 +184,10 @@ export default function Roteirizacao() {
     markers.current = [];
 
     const filtrados = clientes.filter(c => {
-      if (filtroRota && !(c.rota || '').includes(filtroRota)) return false;
+      if (filtroRota   && !(c.rota  || '').includes(filtroRota)) return false;
       if (filtroRegiao && (c.regiao || '') !== filtroRegiao) return false;
       if (filtroBairro && !(c.bairro || '').toLowerCase().includes(filtroBairro.toLowerCase())) return false;
-      if (filtroBusca && !(c.recipient_name || '').toLowerCase().includes(filtroBusca.toLowerCase()) && !String(c.codparc || '').includes(filtroBusca)) return false;
+      if (filtroBusca  && !(c.recipient_name || '').toLowerCase().includes(filtroBusca.toLowerCase()) && !String(c.codparc || '').includes(filtroBusca)) return false;
       return true;
     });
 
@@ -198,8 +197,7 @@ export default function Roteirizacao() {
       const cor = sel ? '#00FF88' : getCorRota(c.rota);
       const mk = new window.google.maps.Marker({
         position: { lat: c.lat, lng: c.lng },
-        map: mapObj.current,
-        title: c.recipient_name,
+        map: mapObj.current, title: c.recipient_name,
         icon: {
           path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z',
           fillColor: cor, fillOpacity: 1, strokeColor: '#001020', strokeWeight: 1,
@@ -221,39 +219,38 @@ export default function Roteirizacao() {
     if (filtrados.length > 0) mapObj.current.fitBounds(bounds);
   }, [clientes, selecionados, filtroRota, filtroRegiao, filtroBairro, filtroBusca]);
 
-  const selArr = Object.values(selecionados);
-  const pesoTotal = selArr.reduce((s, c) => s + (c.weight_kg || 0), 0);
-  const volTotal = selArr.reduce((s, c) => s + (c.volume_m3 || 0), 0);
+  const selArr     = Object.values(selecionados);
+  const pesoTotal  = selArr.reduce((s, c) => s + (c.weight_kg || 0), 0);
+  const volTotal   = selArr.reduce((s, c) => s + (c.volume_m3 || 0), 0);
   const palletsEst = Math.ceil(pesoTotal / PESO_POR_PALLET) || 0;
 
-  const veiculoObj = veiculos.find(v => v.id === veiculo);
+  const veiculoObj  = veiculos.find(v => v.id === veiculo);
   const motoristaObj = motoristas.find(m => m.id === motorista);
-  const aj1Obj = ajudantes.find(a => a.id === ajudante1);
-  const aj2Obj = ajudantes.find(a => a.id === ajudante2);
+  const aj1Obj      = ajudantes.find(a => a.id === ajudante1);
+  const aj2Obj      = ajudantes.find(a => a.id === ajudante2);
 
-  const capKg = parseFloat(veiculoObj?.capacity_kg || 0);
-  const capM3 = parseFloat(veiculoObj?.capacity_m3 || 0);
+  const capKg      = parseFloat(veiculoObj?.capacity_kg || 0);
+  const capM3      = parseFloat(veiculoObj?.capacity_m3 || 0);
   const capPallets = parseInt(veiculoObj?.cap_pallets || veiculoObj?.pallets || 0);
-  const bauInfo = veiculoObj ? `${veiculoObj.box_length || '—'}×${veiculoObj.box_width || '—'}×${veiculoObj.box_height || '—'} m` : '—';
+  const bauInfo    = veiculoObj ? `${veiculoObj.box_length || '—'}×${veiculoObj.box_width || '—'}×${veiculoObj.box_height || '—'} m` : '—';
 
   const rotasFixas = ['801', '802', '803', '804', '805', '811', '822'];
   const regioes = [...new Set(clientes.map(c => c.regiao).filter(Boolean))].sort();
   const bairros = [...new Set(clientes.map(c => c.bairro).filter(Boolean))].sort();
 
-  // Ativar drawing manager quando modo muda
   useEffect(() => {
     const dm = mapObj.current?._drawingManager;
     if (!dm) return;
-    if (modoSel === 'poligono') dm.setDrawingMode(window.google?.maps?.drawing?.OverlayType?.POLYGON);
+    if (modoSel === 'poligono')   dm.setDrawingMode(window.google?.maps?.drawing?.OverlayType?.POLYGON);
     else if (modoSel === 'retangulo') dm.setDrawingMode(window.google?.maps?.drawing?.OverlayType?.RECTANGLE);
-    else if (modoSel === 'circulo') dm.setDrawingMode(window.google?.maps?.drawing?.OverlayType?.CIRCLE);
+    else if (modoSel === 'circulo')   dm.setDrawingMode(window.google?.maps?.drawing?.OverlayType?.CIRCLE);
     else dm.setDrawingMode(null);
   }, [modoSel]);
 
   const roteirizar = () => {
     if (!selArr.length) return alert('Selecione ao menos um cliente no mapa');
-    if (!veiculo) return alert('Selecione um veículo');
-    if (!motorista) return alert('Selecione um motorista');
+    if (!veiculo)       return alert('Selecione um veículo');
+    if (!motorista)     return alert('Selecione um motorista');
     setConfAberta(true);
   };
 
@@ -266,7 +263,6 @@ export default function Roteirizacao() {
       {/* Painel esquerdo */}
       <div style={{ width: 300, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
 
-        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 700 }}>⚡ Roteirização Visual</div>
@@ -284,11 +280,12 @@ export default function Roteirizacao() {
           <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
             {[
               { value: 'individual', label: '📌 Individual' },
-              { value: 'poligono', label: '⬡ Polígono' },
-              { value: 'retangulo', label: '⬜ Retângulo' },
-              { value: 'circulo', label: '⭕ Círculo' },
+              { value: 'poligono',   label: '⬡ Polígono' },
+              { value: 'retangulo',  label: '⬜ Retângulo' },
+              { value: 'circulo',    label: '⭕ Círculo' },
             ].map(m => (
-              <button key={m.value} onClick={() => setModoSel(m.value)} style={{ flex: 1, padding: '5px 4px', border: `2px solid ${modoSel === m.value ? '#64B4FF' : '#1e3a5c'}`, background: modoSel === m.value ? 'rgba(100,180,255,.15)' : 'transparent', color: modoSel === m.value ? '#64B4FF' : '#90afd4', borderRadius: 6, fontSize: 11, cursor: 'pointer', fontWeight: 600, minWidth: 0 }}>
+              <button key={m.value} onClick={() => setModoSel(m.value)}
+                style={{ flex: 1, padding: '5px 4px', border: `2px solid ${modoSel === m.value ? '#64B4FF' : '#1e3a5c'}`, background: modoSel === m.value ? 'rgba(100,180,255,.15)' : 'transparent', color: modoSel === m.value ? '#64B4FF' : '#90afd4', borderRadius: 6, fontSize: 11, cursor: 'pointer', fontWeight: 600, minWidth: 0 }}>
                 {m.label}
               </button>
             ))}
@@ -317,7 +314,7 @@ export default function Roteirizacao() {
           </div>
         </div>
 
-        {/* PASSO 2 - Veículo e Equipe */}
+        {/* PASSO 2 */}
         <div className="card" style={{ padding: 10 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#64B4FF', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 8 }}>PASSO 2 — VEÍCULO E EQUIPE</div>
 
@@ -346,11 +343,10 @@ export default function Roteirizacao() {
             {ajudantes.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
 
-          {/* Barras de capacidade */}
           {veiculoObj && (
             <div style={{ borderTop: '1px solid #1e3a5c', paddingTop: 10 }}>
-              <BarraCapacidade label="⚖️ Peso" valor={pesoTotal} cap={capKg} unidade="kg" />
-              <BarraCapacidade label="📦 Volume" valor={volTotal} cap={capM3} unidade="m³" />
+              <BarraCapacidade label="⚖️ Peso"    valor={pesoTotal}  cap={capKg}      unidade="kg"      />
+              <BarraCapacidade label="📦 Volume"   valor={volTotal}   cap={capM3}      unidade="m³"      />
               {capPallets > 0 && <BarraCapacidade label="🪵 Pallets" valor={palletsEst} cap={capPallets} unidade="pallets" />}
               <div style={{ fontSize: 10, color: '#90afd4', marginTop: 4 }}>
                 Cap. veículo: {capPallets || '—'} pallets | Baú: {bauInfo}
@@ -375,19 +371,16 @@ export default function Roteirizacao() {
                   <div style={{ fontSize: 11, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.recipient_name}</div>
                   <div style={{ fontSize: 10, color: '#90afd4' }}>{c.weight_kg?.toFixed(0)} kg</div>
                 </div>
-                <button onClick={() => setSelecionados(prev => { const n = { ...prev }; delete n[c.id]; return n; })} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 2 }}>✕</button>
+                <button onClick={() => setSelecionados(prev => { const n = { ...prev }; delete n[c.id]; return n; })}
+                  style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 2 }}>✕</button>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Botão roteirizar */}
-        <button
-          className="btn btn-primary"
+        <button className="btn btn-primary"
           style={{ justifyContent: 'center', padding: '12px', fontSize: 13, fontWeight: 700, opacity: selArr.length && veiculo && motorista ? 1 : 0.5 }}
-          onClick={roteirizar}
-          disabled={!selArr.length || !veiculo || !motorista}
-        >
+          onClick={roteirizar} disabled={!selArr.length || !veiculo || !motorista}>
           <Zap size={14} /> Roteirizar — Conferência Master <ChevronRight size={14} />
         </button>
       </div>
@@ -395,9 +388,7 @@ export default function Roteirizacao() {
       {/* Mapa e filtros */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
 
-        {/* Filtros e legenda */}
         <div style={{ background: '#0f2040', border: '1px solid #1e3a5c', borderRadius: 8, padding: '8px 12px', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Legenda status */}
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginRight: 8 }}>
             {[{ cor: '#e8521a', label: 'Pendente' }, { cor: '#00FF88', label: 'Selecionado' }, { cor: '#64B4FF', label: 'Roteirizado' }].map(l => (
               <span key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#90afd4' }}>
@@ -405,46 +396,34 @@ export default function Roteirizacao() {
               </span>
             ))}
           </div>
-
           <div style={{ width: 1, height: 20, background: '#1e3a5c' }} />
-
-          {/* Filtros */}
           <select style={{ background: '#0a1628', border: '1px solid #1e3a5c', color: '#e8f0fe', borderRadius: 6, padding: '4px 8px', fontSize: 11 }} value={filtroRota} onChange={e => setFiltroRota(e.target.value)}>
             <option value="">🗺️ Todas as rotas</option>
-            {rotasFixas.map(r => {
-              const count = clientes.filter(c => (c.rota || '').includes(r)).length;
-              return count > 0 ? <option key={r} value={r}>Rota {r} ({count})</option> : null;
-            })}
+            {rotasFixas.map(r => { const count = clientes.filter(c => (c.rota || '').includes(r)).length; return count > 0 ? <option key={r} value={r}>Rota {r} ({count})</option> : null; })}
           </select>
-
           <select style={{ background: '#0a1628', border: '1px solid #1e3a5c', color: '#e8f0fe', borderRadius: 6, padding: '4px 8px', fontSize: 11 }} value={filtroRegiao} onChange={e => setFiltroRegiao(e.target.value)}>
             <option value="">📍 Todas regiões</option>
             {regioes.map(r => <option key={r} value={r}>{r}</option>)}
           </select>
-
           <select style={{ background: '#0a1628', border: '1px solid #1e3a5c', color: '#e8f0fe', borderRadius: 6, padding: '4px 8px', fontSize: 11 }} value={filtroBairro} onChange={e => setFiltroBairro(e.target.value)}>
             <option value="">🏘️ Todos bairros</option>
             {bairros.map(b => <option key={b} value={b}>{b}</option>)}
           </select>
-
           <input style={{ background: '#0a1628', border: '1px solid #1e3a5c', color: '#e8f0fe', borderRadius: 6, padding: '4px 8px', fontSize: 11, width: 160 }} placeholder="🔍 Nome do cliente..." value={filtroBusca} onChange={e => setFiltroBusca(e.target.value)} />
-
           <button onClick={limparFiltros} style={{ background: 'none', border: '1px solid #1e3a5c', color: '#90afd4', borderRadius: 6, padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}>✕ Limpar</button>
-
           <span style={{ marginLeft: 'auto', fontSize: 11, color: '#90afd4' }}>{status}</span>
         </div>
 
-        {/* Legenda de rotas */}
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {rotasFixas.map(r => (
-            <span key={r} onClick={() => setFiltroRota(filtroRota === r ? '' : r)} style={{ padding: '2px 10px', borderRadius: 12, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: filtroRota === r ? CORES_ROTA[r] : 'rgba(255,255,255,.05)', color: filtroRota === r ? '#001020' : CORES_ROTA[r] || '#90afd4', border: `1px solid ${CORES_ROTA[r] || '#1e3a5c'}` }}>
+            <span key={r} onClick={() => setFiltroRota(filtroRota === r ? '' : r)}
+              style={{ padding: '2px 10px', borderRadius: 12, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: filtroRota === r ? CORES_ROTA[r] : 'rgba(255,255,255,.05)', color: filtroRota === r ? '#001020' : CORES_ROTA[r] || '#90afd4', border: `1px solid ${CORES_ROTA[r] || '#1e3a5c'}` }}>
               {r}
             </span>
           ))}
           <span style={{ padding: '2px 10px', borderRadius: 12, fontSize: 11, fontWeight: 700, background: 'rgba(0,255,136,.1)', color: '#00FF88', border: '1px solid #00FF88' }}>Selecionado</span>
         </div>
 
-        {/* Mapa */}
         <div style={{ flex: 1, borderRadius: 12, overflow: 'hidden', minHeight: 400 }}>
           <div ref={mapRef} style={{ width: '100%', height: '100%', minHeight: 400 }} />
         </div>
