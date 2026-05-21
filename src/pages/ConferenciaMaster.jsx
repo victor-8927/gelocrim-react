@@ -192,7 +192,9 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
   const custoDiesel = (distTotal / kmPerLiter) * fuelPrice;
   const custoManut = parseFloat(veiculo?.manut_mes || 0) / 22;
   const ipvaDia = parseFloat(veiculo?.ipva_anual || 0) / 365;
-  const custoDia = parseFloat(motorista?.daily_cost || 0) + ajudantes.reduce((s, a) => s + parseFloat(a?.daily_cost || 0), 0);
+  // Custo equipe: viagem única = custo completo / 1ª ou 2ª viagem = divide por 2
+  const custoEquipeBruto = parseFloat(motorista?.daily_cost || 0) + ajudantes.reduce((s, a) => s + parseFloat(a?.daily_cost || 0), 0);
+  const custoDia = tipoOp === 'unica' ? custoEquipeBruto : (tipoOp === '1viagem' || tipoOp === '2viagem') ? custoEquipeBruto / 2 : custoEquipeBruto;
   const custoTotal = custoDia + custoDiesel + custoManut + ipvaDia;
   const lucro = fatTotal - custoTotal;
   const margem = fatTotal > 0 ? (lucro / fatTotal * 100) : 0;
@@ -550,9 +552,10 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
                     <div style={{ fontSize: 10, color: '#90afd4', marginBottom: 4 }}>Tipo de Operação</div>
                     <div style={{ display: 'flex', gap: 4 }}>
                       {[
+                        { key: 'unica',   label: '🔒 Única',    cor: '#a78bfa' },
                         { key: '1viagem', label: '1ª Viagem', cor: '#10b981' },
                         { key: '2viagem', label: '2ª Viagem', cor: '#64B4FF' },
-                        { key: 'evento', label: '🎉 Evento', cor: '#f59e0b' },
+                        { key: 'evento',  label: '🎉 Evento',  cor: '#f59e0b' },
                       ].map(t => (
                         <button key={t.key} onClick={() => setTipoOp(t.key)}
                           style={{ flex: 1, padding: '4px 2px', borderRadius: 6, border: `1px solid ${tipoOp === t.key ? t.cor : '#1e3a5c'}`, background: tipoOp === t.key ? t.cor + '22' : 'transparent', color: tipoOp === t.key ? t.cor : '#90afd4', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
