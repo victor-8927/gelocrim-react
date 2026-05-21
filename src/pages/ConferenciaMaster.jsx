@@ -313,15 +313,21 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
     try {
       // 1. Criar a rota
       const rota = await createRoute({
-        vehicle_id:    veiculo?.id,
-        driver_id:     motorista?.id,
-        assistant1_id: ajudantes?.[0]?.id || null,
-        assistant2_id: ajudantes?.[1]?.id || null,
-        date:          dataSaida,
-        planned_start: horaInicio,
-        trip_type:     tipoOp,
-        tempo_evento:  tipoOp === 'evento' ? tempoEvento : null,
-        total_stops:   ordem.length,
+        vehicle_id:           veiculo?.id,
+        driver_id:            motorista?.id,
+        assistant1_id:        ajudantes?.[0]?.id || null,
+        assistant2_id:        ajudantes?.[1]?.id || null,
+        date:                 dataSaida,
+        planned_start:        horaInicio,
+        trip_type:            tipoOp,
+        tempo_evento:         tipoOp === 'evento' ? tempoEvento : null,
+        total_stops:          ordem.length,
+        custo_equipe:         parseFloat(custoDia.toFixed(2)),
+        custo_diesel:         parseFloat(custoDiesel.toFixed(2)),
+        custo_manutencao:     parseFloat((custoManut + ipvaDia).toFixed(2)),
+        custo_total:          parseFloat(custoTotal.toFixed(2)),
+        faturamento_previsto: parseFloat(fatTotal.toFixed(2)),
+        margem_percentual:    parseFloat(margem.toFixed(2)),
       });
 
       if (!rota?.id || ordem.length === 0) { alert('Erro ao criar rota.'); return; }
