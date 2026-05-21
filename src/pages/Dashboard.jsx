@@ -73,7 +73,6 @@ export default function Dashboard() {
 
   // Saldo — usa is_saldo quando disponível, senão order_type 1010
   const saldoPendente  = pedidos.filter(p => (p.is_saldo || p.order_type === '1010') && p.status === 'pending').length;
-  const saldoEntregue  = pedidos.filter(p => (p.is_saldo || p.order_type === '1010') && p.status === 'delivered').length;
   const saldoRetornado = pedidos.filter(p => (p.is_saldo || p.order_type === '1010') && p.status === 'failed').length;
 
   // Mix de carga por TOP — 1000=Venda, 1009=Troca, 1007=Bonificação, 1010=Pré-pedido

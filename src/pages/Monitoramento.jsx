@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { getRoutes, supabase } from '../services/supabase';
+import { getRoutes } from '../services/supabase';
 import { RefreshCw } from 'lucide-react';
 
 export default function Monitoramento() {
@@ -123,7 +123,6 @@ export default function Monitoramento() {
   const liberadas  = rotas.filter(r => r.status === 'planned').length;
   const totalEntregas  = rotas.reduce((s, r) => s + (r.total_stops || 0), 0);
   const entregasFeitas = rotas.reduce((s, r) => s + (r.completed_stops || 0), 0);
-  const progresso = totalEntregas > 0 ? Math.round(entregasFeitas / totalEntregas * 100) : 0;
   const gpsAtivos = rotas.filter(r => r.status === 'in_progress' && r.current_lat && r.current_lng).length;
 
   const rotaAtual = rotas.find(r => r.id === rotaSel);
