@@ -327,7 +327,7 @@ export default function Rotas() {
     } catch(e) { alert('Erro: ' + e.message); }
   };
 
-  useEffect(() => { load(); }, [data]);
+  useEffect(() => { load(); }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const rotasPendentes  = rotas.filter(r => r.status === 'pending');
   const rotasLiberadas  = rotas.filter(r => r.status === 'planned' || r.status === 'in_progress');
