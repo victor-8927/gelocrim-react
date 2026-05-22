@@ -65,6 +65,7 @@ function parseArquivo(buffer, isXlsx) {
 
 export default function ModalImportarCSV({ onFechar, onImportado }) {
   const [fase, setFase]           = useState('upload'); // upload | preview | importando | resultado
+  // eslint-disable-next-line no-unused-vars
   const [arquivo, setArquivo]     = useState(null);
   const [linhas, setLinhas]       = useState([]);
   const [validas, setValidas]     = useState([]);
@@ -75,7 +76,7 @@ export default function ModalImportarCSV({ onFechar, onImportado }) {
 
   function handleArquivo(file) {
     if (!file) return;
-    setArquivo(file);
+    // setArquivo(file);
     const isXlsx = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
     const reader = new FileReader();
     reader.onload = function(e) {

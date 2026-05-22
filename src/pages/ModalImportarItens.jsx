@@ -54,6 +54,7 @@ function mapearItem(row) {
 
 export default function ModalImportarItens({ onFechar, onImportado }) {
   const [fase, setFase]           = useState('upload');
+  // eslint-disable-next-line no-unused-vars
   const [arquivo, setArquivo]     = useState(null);
   const [validos, setValidos]     = useState([]);
   const [erros, setErros]         = useState([]);
@@ -63,7 +64,7 @@ export default function ModalImportarItens({ onFechar, onImportado }) {
 
   function handleArquivo(file) {
     if (!file) return;
-    setArquivo(file);
+    // setArquivo(file);
     const isXlsx = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
     const reader = new FileReader();
     reader.onload = function(e) {
