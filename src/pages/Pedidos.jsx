@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { getOrders, supabase } from '../services/supabase';
 import { RefreshCw, Search, X } from 'lucide-react';
 import ModalSaldo from './ModalSaldo';
+import ModalImportarCSV from './ModalImportarCSV';
+import ModalImportarItens from './ModalImportarItens';
 
 const STATUS_LABELS = {
   pending: 'Pendente', routed: 'Roteirizado', delivered: 'Entregue', failed: 'Falha',
@@ -159,6 +161,8 @@ export default function Pedidos() {
   const [limite, setLimite] = useState(100);
   const [selecionados, setSelecionados] = useState({});
   const [modalPedido, setModalPedido] = useState(null);
+  const [modalImportarCSV, setModalImportarCSV] = useState(false);
+  const [modalImportarItens, setModalImportarItens] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -231,8 +235,8 @@ export default function Pedidos() {
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <button className="btn btn-secondary" onClick={load}><RefreshCw size={14} /> Atualizar</button>
-          <button className="btn btn-secondary" style={{ fontSize: 12 }}>📥 Importar CSV</button>
-          <button className="btn btn-secondary" style={{ fontSize: 12 }}>📦 Importar Itens</button>
+          <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={() => setModalImportarCSV(true)}>📥 Importar CSV</button>
+          <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={() => setModalImportarItens(true)}>📦 Importar Itens</button>
           <button className="btn btn-secondary" style={{ fontSize: 12 }}>📋 Importar Planilha TI</button>
           <button className="btn btn-secondary" style={{ fontSize: 12 }}>🔄 Sincronizar Sankhya</button>
           <button className="btn btn-secondary" style={{ fontSize: 12, borderColor: '#64B4FF', color: '#64B4FF' }} onClick={() => setModalSaldo(true)}>🔵 + Saldo</button>
@@ -406,6 +410,8 @@ export default function Pedidos() {
       </div>
 
       {modalPedido && <ModalPedido pedido={modalPedido} onFechar={() => setModalPedido(null)} />}
+      {modalImportarCSV && <ModalImportarCSV onFechar={() => setModalImportarCSV(false)} onImportado={load} />}
+      {modalImportarItens && <ModalImportarItens onFechar={() => setModalImportarItens(false)} onImportado={load} />}
       {modalSaldo && <ModalSaldo onFechar={() => setModalSaldo(false)} onSalvo={load} />}
     </div>
   );
