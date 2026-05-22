@@ -48,11 +48,12 @@ export const getComodatosByClient = async (codparc) => {
 };
 
 // ─── ORDERS ──────────────────────────────────────────────────────────────────
-export const getOrders = async ({ limit = 500, status, region, order_type, search } = {}) => {
+export const getOrders = async ({ limit = 500, status, region, order_type, search, date } = {}) => {
   let q = supabase.from('orders').select(`*, order_items(*)`).order('external_id', { ascending: false });
   if (status)     q = q.eq('status', status);
   if (region)     q = q.eq('region', region);
   if (order_type) q = q.eq('order_type', order_type);
+  if (date)       q = q.eq('delivery_date', date);
   if (search) {
     const isNum = !isNaN(search);
     q = q.or(`recipient_name.ilike.%${search}%,address.ilike.%${search}%${isNum ? `,codparc.eq.${search}` : ''}`);

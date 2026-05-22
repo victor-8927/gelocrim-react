@@ -33,7 +33,7 @@ export default function Dashboard() {
     setLoading(true);
     try {
       const [p, r, v, d] = await Promise.all([
-        getOrders({ limit: 1000 }).catch(() => []),
+        getOrders({ limit: 1000, date: hojeManaus() }).catch(() => []),
         getRoutes({ date: hojeManaus() }).catch(() => []),
         getVehicles().catch(() => []),
         getDrivers().catch(() => []),
