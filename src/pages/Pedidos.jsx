@@ -37,25 +37,27 @@ function parseCodNome(val) {
 }
 
 function mapearCabLinha(row) {
-  // Filtro ORDEM DE CARGA — se existir e != 0, ignora
-  const oc = get(row, 'ORDEM DE CARGA', 'ORDEMCARGA');
-  if (oc !== '' && parseInt(oc) !== 0) return null;
+  // Colunas exatas do Sankhya: Nro. Único, Ordem de carga, Nro. Nota, Vlr. Nota,
+  // Tipo Operação, Dt. Neg., Parceiro, Nome Parceiro (Parceiro), Peso,
+  // Descrição (Tipo de Negociação), Descrição (Rota)
+  const oc = get(row, 'ORDEM DE CARGA');
+  if (oc !== '' && oc !== 'NONE' && parseInt(oc) !== 0) return null;
 
-  const nunota = get(row, 'NUMERO ÚNICO', 'NUMERO UNICO', 'NRO ÚNICO', 'NRO UNICO', 'NUNOTA', 'NRO_UNICO');
+  const nunota = get(row, 'NRO ÚNICO', 'NRO UNICO', 'NUMERO ÚNICO', 'NUNOTA');
   if (!nunota) return null;
 
-  const nf      = get(row, 'NUMERO DOCUMENTO', 'NUMNOTA', 'NF') || nunota;
-  const codNome = get(row, 'CODPAR-NOME PARCEIROS', 'CODPAR NOME PARCEIROS');
-  const { codparc, nome } = parseCodNome(codNome);
-  const nomeFinal     = nome || get(row, 'NOMEPARC', 'NOME PARCEIRO', 'NOME PARCEIROS');
-  const codparcFinal  = codparc || parseInt(get(row, 'CODPARC', 'COD PARCEIRO') || '0') || null;
-  const data          = get(row, 'DATA', 'DTNEG', 'DT NEGOC');
-  const top           = get(row, 'TOP', 'CODTIPOPER', 'TIPO OPERAÇÃO', 'TIPO OPERACAO') || '1000';
-  const peso          = get(row, 'PESO', 'PESOBRUT', 'PESO BRUTO');
-  const vlr           = get(row, 'VLRNOTA', 'VLR NOTA', 'VALOR NOTA', 'VALOR');
-  const pagto         = get(row, 'PAGAMENTO', 'FORMA PAGAMENTO') || 'A Vista';
-  const volume        = get(row, 'VOLUME', 'VOLUMEBRUT');
-  const geo           = get(row, 'REGIAO', 'REGIÃO', 'GEO_ZONE', 'ZONA');
+  const nf           = get(row, 'NRO NOTA', 'NUMNOTA', 'NUMERO DOCUMENTO') || nunota;
+  const codparcRaw   = get(row, 'PARCEIRO', 'CODPARC');
+  const nomeRaw      = get(row, 'NOME PARCEIRO (PARCEIRO)', 'NOMEPARC', 'NOME PARCEIRO');
+  const codparcFinal = parseInt(codparcRaw) || null;
+  const nomeFinal    = nomeRaw || '';
+  const data         = get(row, 'DT NEG', 'DTNEG', 'DATA');
+  const top          = get(row, 'TIPO OPERAÇÃO', 'TIPO OPERACAO', 'CODTIPOPER', 'TOP') || '1000';
+  const peso         = get(row, 'PESO', 'PESOBRUT');
+  const vlr          = get(row, 'VLR NOTA', 'VLRNOTA', 'VALOR NOTA', 'VALOR');
+  const pagto        = get(row, 'DESCRIÇÃO (TIPO DE NEGOCIAÇÃO)', 'DESCRICAO (TIPO DE NEGOCIACAO)', 'PAGAMENTO') || 'A Vista';
+  const volume       = get(row, 'VOLUME', 'VOLUMEBRUT');
+  const geo          = get(row, 'DESCRIÇÃO (ROTA)', 'DESCRICAO (ROTA)', 'REGIAO', 'REGIÃO');
 
   let dataFmt = new Date().toISOString().slice(0, 10);
   if (data) {
@@ -82,23 +84,31 @@ function mapearCabLinha(row) {
 }
 
 function mapearItemLinha(row) {
-  const oc = get(row, 'ORDEM DE CARGA', 'ORDEMCARGA');
-  if (oc !== '' && parseInt(oc) !== 0) return null;
+  // Colunas exatas: Nro. Único, Nro. Doc, Parceiro, Data, Item, Quantidade, Ordem de Carga, TOP
+  const oc = get(row, 'ORDEM DE CARGA');
+  if (oc !== '' && oc !== 'NONE' && parseInt(oc) !== 0) return null;
 
-  const nunota  = get(row, 'NUMERO ÚNICO', 'NUMERO UNICO', 'NUNOTA');
-  const codprod = get(row, 'ITEM', 'CODPROD', 'COD PRODUTO');
-  if (!nunota || !codprod) return null;
+  const nunota  = get(row, 'NRO ÚNICO', 'NRO UNICO', 'NUMERO ÚNICO', 'NUNOTA');
+  const itemRaw = get(row, 'ITEM', 'CODPROD');
+  if (!nunota || !itemRaw) return null;
 
-  const nf    = get(row, 'NUMERO DOCUMENTO', 'NUMNOTA') || nunota;
-  const codNome = get(row, 'CODPAR-NOME PARCEIROS', 'CODPAR NOME PARCEIROS');
-  const { codparc } = parseCodNome(codNome);
-  const qty   = get(row, 'Q NEGOCIADA', 'QTDNEG', 'QTD NEGOCIADA', 'QTD');
-  const peso  = get(row, 'PESO', 'PESOBRUT', 'PESO UNIT');
-  const vlr   = get(row, 'VLRTOT', 'VLR TOTAL', 'VALOR TOTAL');
-  const top   = get(row, 'TOP', 'CODTIPOPER', 'TIPO OPERAÇÃO', 'TIPO OPERACAO') || '1000';
-  const descr = get(row, 'DESCRICAO', 'DESCRPROD', 'PRODUTO', 'DESCRIÇÃO');
+  // Item vem como "370 - GELO 05KG"
+  const itemParts = itemRaw.split(/\s*[-–]\s*/);
+  const codprod = itemParts[0].trim();
+  const descr   = itemParts.slice(1).join(' ').trim();
+
+  const nf          = get(row, 'NRO DOC', 'NUMNOTA', 'NUMERO DOCUMENTO') || nunota;
+  const parceiroRaw = get(row, 'PARCEIRO', 'CODPARC');
+  const { codparc } = parseCodNome(parceiroRaw);
+  const qty         = get(row, 'QUANTIDADE', 'Q NEGOCIADA', 'QTDNEG', 'QTD');
+  const peso        = get(row, 'PESO', 'PESOBRUT');
+  const vlr         = get(row, 'VLRTOT', 'VLR TOTAL', 'VALOR TOTAL');
+  // TOP vem como "1000 - PEDIDO DE VENDA"
+  const topRaw  = get(row, 'TOP', 'CODTIPOPER', 'TIPO OPERAÇÃO');
+  const topMatch = topRaw ? topRaw.match(/^(\d+)/) : null;
 
   const NOMES = { '370': 'GELO 05KG', '371': 'GELO 10KG', '372': 'GELO 20KG', '373': 'GELO 40KG' };
+  const topFinal = topMatch ? topMatch[1] : topRaw.replace(/\D/g, '') || '1000';
 
   return {
     id:             'item-' + String(nunota).replace(/\D/g, '') + '-' + String(codprod),
@@ -110,7 +120,7 @@ function mapearItemLinha(row) {
     qty:            parseFloat(String(qty).replace(',', '.')) || 0,
     weight_unit:    parseFloat(String(peso).replace(',', '.')) || 0,
     vlr_total:      parseFloat(String(vlr).replace(',', '.').replace('R$', '').trim()) || 0,
-    top_app:        String(top).replace(/\D/g, '') || '1000',
+    top_app:        topFinal,
     updated_at:     new Date().toISOString(),
   };
 }
