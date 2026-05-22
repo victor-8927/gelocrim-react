@@ -42,7 +42,7 @@ function ModalEditar({ rota, onFechar, onSalvo }) {
         const novaRota = {
           driver_id:    motoristaTransbordo,
           vehicle_id:   vdaTransbordo,
-          date:         rota.date,
+          date:         rota.route_date,
           status:       'planned',
           trip_number:  (rota.trip_number || 'V') + '-T',
           notes:        'Transbordo de ' + (rota.trip_number || rota.id?.slice(0,8)),
@@ -297,8 +297,8 @@ export default function Rotas() {
     try {
       const [rotasData, rotasPendentes, rotasPlanned] = await Promise.all([
         getRoutes({ date: data }),
-        getRoutes({ status: 'pending' }),
-        getRoutes({ status: 'planned' }),
+        getRoutes({ status: 'pending', date: data }),
+        getRoutes({ status: 'planned', date: data }),
       ]);
       const todas = [];
       [...(rotasPendentes || []), ...(rotasPlanned || []), ...(rotasData || [])].forEach(r => {
@@ -455,7 +455,7 @@ export default function Rotas() {
                     <td style={{ fontWeight:700, color:'#64B4FF', fontSize:12 }}>{r.trip_number || r.id?.slice(0,16)}</td>
                     <td style={{ fontSize:12 }}>{r.vehicle_name || '—'}</td>
                     <td style={{ fontSize:12 }}>{r.driver_name || '—'}</td>
-                    <td style={{ fontSize:12, color:'#90afd4' }}>{r.date || data}</td>
+                    <td style={{ fontSize:12, color:'#90afd4' }}>{r.route_date || data}</td>
                     <td style={{ minWidth:140 }}>
                       <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                         <div style={{ flex:1, height:6, background:'#1e3a5c', borderRadius:3, overflow:'hidden' }}>
