@@ -92,6 +92,7 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
   const [conflito, setConflito] = useState(null);
   const [dragIdx, setDragIdx] = useState(null);
   const mapRef = useRef(null);
+  const [geometriaCaminho, setGeometriaCaminho] = React.useState('');
   const mapObj = useRef(null);
   const markersRef = useRef([]);
   const polyRef = useRef(null);
@@ -165,6 +166,10 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
           });
           renderer.setDirections(result);
           polyRef.current = renderer;
+          // Capturar a polyline codificada para salvar no banco
+          if (result.routes && result.routes[0] && result.routes[0].overview_polyline) {
+            setGeometriaCaminho(result.routes[0].overview_polyline);
+          }
         } else {
           polyRef.current = new window.google.maps.Polyline({ path, map: mapObj.current, strokeColor: '#64B4FF', strokeOpacity: 0.8, strokeWeight: 5 });
         }
@@ -328,6 +333,7 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
         custo_total:          parseFloat(custoTotal.toFixed(2)),
         faturamento_previsto: parseFloat(fatTotal.toFixed(2)),
         margem_percentual:    parseFloat(margem.toFixed(2)),
+        geometria_caminho:    geometriaCaminho || null,
       });
 
       if (!rota?.id || ordem.length === 0) { alert('Erro ao criar rota.'); return; }

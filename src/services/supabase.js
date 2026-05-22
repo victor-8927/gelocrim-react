@@ -193,6 +193,7 @@ export const createRoute = async (route) => {
     custo_total:          route.custo_total          || 0,
     faturamento_previsto: route.faturamento_previsto || 0,
     margem_percentual:    route.margem_percentual    || 0,
+    geometria_caminho:    route.geometria_caminho    || null,
     status: 'pending',
     total_stops: route.total_stops || 0,
     created_at: new Date().toISOString(),
