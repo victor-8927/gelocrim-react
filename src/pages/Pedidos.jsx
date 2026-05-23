@@ -18,11 +18,24 @@ const TOP_CORES = {
 
 // Normaliza chaves do xlsx para busca robusta
 function get(row, ...keys) {
+  // Cria índice com e sem pontos para máxima compatibilidade
   const r = {};
-  Object.keys(row).forEach(k => { r[k.trim().toUpperCase().replace(/[.\s]+/g, ' ')] = row[k]; });
+  Object.keys(row).forEach(k => {
+    const norm = k.trim().toUpperCase();
+    r[norm] = row[k];
+    r[norm.replace(/\./g, '')] = row[k];
+    r[norm.replace(/[.()]/g, '').replace(/\s+/g, ' ').trim()] = row[k];
+  });
   for (const k of keys) {
-    const v = r[k.toUpperCase().trim()];
-    if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
+    const tries = [
+      k.toUpperCase().trim(),
+      k.toUpperCase().trim().replace(/\./g, ''),
+      k.toUpperCase().trim().replace(/[.()]/g, '').replace(/\s+/g, ' ').trim(),
+    ];
+    for (const t of tries) {
+      const v = r[t];
+      if (v !== undefined && v !== null && String(v).trim() !== '' && String(v).trim() !== 'None') return String(v).trim();
+    }
   }
   return '';
 }
