@@ -209,11 +209,14 @@ function ModalPedido({ pedido, onFechar }) {
 
   React.useEffect(() => {
     if (!pedido) return;
-    const nf = pedido.external_id || pedido.invoice_number;
-    if (!nf) return;
     setLoadingItens(true);
-    supabase.from('order_items').select('item_type, item_name, qty, weight_unit').eq('invoice_number', nf)
-      .then(res => { setItens(res.data || []); }).finally(() => setLoadingItens(false));
+    // Busca por order_id (ord-NUNOTA) que é o vínculo correto
+    const orderId = 'ord-' + String(pedido.external_id || '');
+    supabase.from('order_items')
+      .select('item_type, item_name, qty, weight_unit, top_app')
+      .eq('order_id', orderId)
+      .then(res => { setItens(res.data || []); })
+      .finally(() => setLoadingItens(false));
   }, [pedido]);
 
   if (!pedido) return null;
