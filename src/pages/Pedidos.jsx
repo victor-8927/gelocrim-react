@@ -97,12 +97,12 @@ function mapearCabLinha(row) {
 }
 
 function mapearItemLinha(row) {
-  // Colunas exatas: Nro. Único, Nro. Doc, Parceiro, Data, Item, Quantidade, Ordem de Carga, TOP
+  // Colunas: Nro. Único | Nro. Doc | Parceiro | Data | Item | Quantidade | Ordem de Carga | TOP
   const oc = get(row, 'ORDEM DE CARGA');
   if (oc !== '' && oc !== 'NONE' && parseInt(oc) !== 0) return null;
 
-  const nunota  = get(row, 'NRO ÚNICO', 'NRO UNICO', 'NUMERO ÚNICO', 'NUNOTA');
-  const itemRaw = get(row, 'ITEM', 'CODPROD');
+  const nunota  = get(row, 'NRO ÚNICO', 'NRO UNICO', 'NUMERO ÚNICO');
+  const itemRaw = get(row, 'ITEM');
   if (!nunota || !itemRaw) return null;
 
   // Item vem como "370 - GELO 05KG"
@@ -110,14 +110,14 @@ function mapearItemLinha(row) {
   const codprod = itemParts[0].trim();
   const descr   = itemParts.slice(1).join(' ').trim();
 
-  const nf          = get(row, 'NRO DOC', 'NUMNOTA', 'NUMERO DOCUMENTO') || nunota;
-  const parceiroRaw = get(row, 'PARCEIRO', 'CODPARC');
+  const nf          = get(row, 'NRO DOC', 'NUMNOTA') || nunota;
+  const parceiroRaw = get(row, 'PARCEIRO');
   const { codparc } = parseCodNome(parceiroRaw);
-  const qty         = get(row, 'QUANTIDADE', 'Q NEGOCIADA', 'QTDNEG', 'QTD');
-  const peso        = get(row, 'PESO', 'PESOBRUT');
-  const vlr         = get(row, 'VLRTOT', 'VLR TOTAL', 'VALOR TOTAL');
+  const qty         = get(row, 'QUANTIDADE');
+  const peso        = '6'; // peso unitário padrão (6kg por saco de 5kg)
+  const vlr         = '0';
   // TOP vem como "1000 - PEDIDO DE VENDA"
-  const topRaw  = get(row, 'TOP', 'CODTIPOPER', 'TIPO OPERAÇÃO');
+  const topRaw   = get(row, 'TOP');
   const topMatch = topRaw ? topRaw.match(/^(\d+)/) : null;
 
   const NOMES = { '370': 'GELO 05KG', '371': 'GELO 10KG', '372': 'GELO 20KG', '373': 'GELO 40KG' };
@@ -158,38 +158,37 @@ async function importarXlsx(file, tipo, setMsg) {
           return;
         }
 
-        setMsg(`⏳ Importando ${validos.length} registros...`);
+        setMsg('⏳ Limpando registros antigos...');
+
+        // Limpar pedidos/itens pendentes antes de importar novos
+        if (tipo === 'cab') {
+          await supabase.from('orders').delete().eq('status', 'pending');
+        } else {
+          // Limpar itens dos pedidos que serão reimportados
+          const ids = validos.map(v => v.order_id).filter(Boolean);
+          const uniqueIds = [...new Set(ids)];
+          if (uniqueIds.length > 0) {
+            await supabase.from('order_items').delete().in('order_id', uniqueIds);
+          }
+        }
+
+        setMsg('⏳ Importando ' + validos.length + ' registros...');
 
         const LOTE = 50;
         let ok = 0; let err = 0;
         for (let i = 0; i < validos.length; i += LOTE) {
           const { error } = await supabase.from(tabela).upsert(validos.slice(i, i + LOTE), { onConflict: 'id' });
-          if (error) err += Math.min(LOTE, validos.length - i);
+          if (error) { err += Math.min(LOTE, validos.length - i); console.error('Upsert error:', error); }
           else ok += Math.min(LOTE, validos.length - i);
         }
 
-        // Atualizar nomes que vieram como CODPARC XXXX
-        if (tipo === 'cab') {
-          const semNome = validos.filter(p => p.recipient_name && p.recipient_name.startsWith('CODPARC') && p.codparc);
-          if (semNome.length > 0) {
-            const { data: clientes } = await supabase.from('clients').select('codparc, name').in('codparc', semNome.map(p => p.codparc));
-            if (clientes) {
-              const mapa = {};
-              clientes.forEach(c => { mapa[c.codparc] = c.name; });
-              for (const p of semNome) {
-                if (mapa[p.codparc]) await supabase.from('orders').update({ recipient_name: mapa[p.codparc] }).eq('id', p.id);
-              }
-            }
-          }
-        }
-
         const msg = err > 0
-          ? `⚠️ ${ok} importados, ${err} com erro`
-          : `✅ ${ok} ${tipo === 'cab' ? 'pedidos' : 'itens'} importados com sucesso!`;
+          ? '⚠️ ' + ok + ' importados, ' + err + ' com erro'
+          : '✅ ' + ok + ' ' + (tipo === 'cab' ? 'pedidos' : 'itens') + ' importados com sucesso!';
         setMsg(msg);
         resolve(ok);
       } catch (e) {
-        setMsg('❌ Erro ao ler arquivo: ' + e.message);
+        setMsg('❌ Erro: ' + e.message);
         resolve(0);
       }
     };
