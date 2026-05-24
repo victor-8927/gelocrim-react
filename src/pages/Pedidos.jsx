@@ -189,6 +189,28 @@ async function importarXlsx(file, tipo, setMsg) {
           else ok += Math.min(LOTE, validos.length - i);
         }
 
+        // Após importar Cab, enriquecer com dados dos clientes (endereço, GPS, service_time)
+        if (tipo === 'cab' && ok > 0) {
+          setMsg('⏳ Buscando dados dos clientes...');
+          const codparcs = validos.map(p => p.codparc).filter(Boolean);
+          if (codparcs.length > 0) {
+            const { data: clientes } = await supabase
+              .from('clients')
+              .select('codparc, address, district, city, state, lat, lng, service_time')
+              .in('codparc', codparcs);
+            if (clientes && clientes.length > 0) {
+              for (const c of clientes) {
+                const addr = [c.address, c.district, c.city].filter(Boolean).join(', ');
+                await supabase.from('orders').update({
+                  address: addr || null,
+                  lat: c.lat || null,
+                  lng: c.lng || null,
+                }).eq('codparc', c.codparc).eq('status', 'pending');
+              }
+            }
+          }
+        }
+
         const msg = err > 0
           ? '⚠️ ' + ok + ' importados, ' + err + ' com erro'
           : '✅ ' + ok + ' ' + (tipo === 'cab' ? 'pedidos' : 'itens') + ' importados com sucesso!';
