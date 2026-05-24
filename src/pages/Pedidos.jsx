@@ -120,21 +120,20 @@ function mapearItemLinha(row) {
   const topRaw   = get(row, 'TOP');
   const topMatch = topRaw ? topRaw.match(/^(\d+)/) : null;
 
-  const NOMES = { '370': 'GELO 05KG', '371': 'GELO 10KG', '372': 'GELO 20KG', '373': 'GELO 40KG' };
-  const topFinal = topMatch ? topMatch[1] : topRaw.replace(/\D/g, '') || '1000';
+  const NOMES  = { '370': 'GELO 05KG', '371': 'GELO 10KG', '372': 'GELO 20KG', '373': 'GELO 40KG' };
+  const PESOS  = { '370': 6, '371': 11, '372': 22, '373': 44 };
+  const topFinal = topMatch ? topMatch[1] : (topRaw || '').replace(/\D/g, '') || '1000';
+  const cod = String(codprod).trim();
 
   return {
-    id:             'item-' + String(nunota).replace(/\D/g, '') + '-' + String(codprod),
-    order_id:       'ord-' + String(nunota).replace(/\D/g, ''),
+    id:             'item-' + String(nunota).replace(/\D/g, '') + '-' + cod,
     codparc:        codparc || null,
     invoice_number: String(nf).replace(/\D/g, '') || String(nunota).replace(/\D/g, ''),
-    item_type:      String(codprod).trim(),
-    item_name:      descr || NOMES[String(codprod).trim()] || String(codprod).trim(),
+    item_type:      cod,
+    item_name:      descr || NOMES[cod] || cod,
     qty:            parseFloat(String(qty).replace(',', '.')) || 0,
-    weight_unit:    parseFloat(String(peso).replace(',', '.')) || 0,
-    vlr_total:      parseFloat(String(vlr).replace(',', '.').replace('R$', '').trim()) || 0,
+    weight_unit:    PESOS[cod] || 0,
     top_app:        topFinal,
-    updated_at:     new Date().toISOString(),
   };
 }
 
@@ -160,15 +159,23 @@ async function importarXlsx(file, tipo, setMsg) {
 
         setMsg('⏳ Limpando registros antigos...');
 
-        // Limpar pedidos/itens pendentes antes de importar novos
+        // Limpar TODOS os pedidos que não estão em rota ativa
         if (tipo === 'cab') {
-          await supabase.from('orders').delete().eq('status', 'pending');
+          // Apaga pending e routed que não têm rota ativa
+          await supabase.from('orders').delete().in('status', ['pending', 'failed', 'rescheduled']);
+          // Apaga routed que não estão roteirizados hoje
+          const hoje = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString().slice(0, 10);
+          const { data: rotasAtivas } = await supabase.from('routes').select('id').in('status', ['planned', 'in_progress']).eq('route_date', hoje);
+          const idsRotasAtivas = (rotasAtivas || []).map(r => r.id);
+          if (idsRotasAtivas.length === 0) {
+            // Sem rotas ativas hoje — apaga todos os routed também
+            await supabase.from('orders').delete().eq('status', 'routed');
+          }
         } else {
           // Limpar itens dos pedidos que serão reimportados
-          const ids = validos.map(v => v.order_id).filter(Boolean);
-          const uniqueIds = [...new Set(ids)];
-          if (uniqueIds.length > 0) {
-            await supabase.from('order_items').delete().in('order_id', uniqueIds);
+          const ids = [...new Set(validos.map(v => v.order_id).filter(Boolean))];
+          if (ids.length > 0) {
+            await supabase.from('order_items').delete().in('order_id', ids);
           }
         }
 
@@ -177,7 +184,7 @@ async function importarXlsx(file, tipo, setMsg) {
         const LOTE = 50;
         let ok = 0; let err = 0;
         for (let i = 0; i < validos.length; i += LOTE) {
-          const { error } = await supabase.from(tabela).upsert(validos.slice(i, i + LOTE), { onConflict: 'id' });
+          const { error } = await supabase.from(tabela).upsert(validos.slice(i, i + LOTE), { onConflict: 'id', ignoreDuplicates: false });
           if (error) { err += Math.min(LOTE, validos.length - i); console.error('Upsert error:', error); }
           else ok += Math.min(LOTE, validos.length - i);
         }
