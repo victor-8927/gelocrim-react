@@ -413,7 +413,8 @@ export default function Pedidos() {
 
       {modalPedido && <ModalPedido pedido={modalPedido} onFechar={() => setModalPedido(null)} />}
       {modalGps && <ModalGps pedido={modalGps} onFechar={() => setModalGps(null)} onSalvo={(lat, lng) => {
-        setPedidos(prev => prev.map(p => p.id === modalGps.id ? {...p, lat, lng} : p));
+        // Atualiza todos os pedidos do mesmo cliente na tela
+        setPedidos(prev => prev.map(p => p.codparc === modalGps.codparc ? {...p, lat, lng} : p));
         setModalGps(null);
       }} />}
       {modalSaldo && <ModalSaldo onFechar={() => setModalSaldo(false)} onSalvo={load} />}
