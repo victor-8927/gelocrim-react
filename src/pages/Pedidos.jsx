@@ -114,8 +114,6 @@ function mapearItemLinha(row) {
   const parceiroRaw = get(row, 'PARCEIRO');
   const { codparc } = parseCodNome(parceiroRaw);
   const qty         = get(row, 'QUANTIDADE');
-  const peso        = '6'; // peso unitário padrão (6kg por saco de 5kg)
-  const vlr         = '0';
   // TOP vem como "1000 - PEDIDO DE VENDA"
   const topRaw   = get(row, 'TOP');
   const topMatch = topRaw ? topRaw.match(/^(\d+)/) : null;
