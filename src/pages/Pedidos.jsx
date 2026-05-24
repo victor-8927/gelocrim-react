@@ -123,10 +123,12 @@ function mapearItemLinha(row) {
   const topFinal = topMatch ? topMatch[1] : (topRaw || '').replace(/\D/g, '') || '1000';
   const cod = String(codprod).trim();
 
+  const nfFinal = String(nf).replace(/\D/g, '') || String(nunota).replace(/\D/g, '');
   return {
     id:             'item-' + String(nunota).replace(/\D/g, '') + '-' + cod,
+    order_id:       'ord-' + String(nunota).replace(/\D/g, ''),
     codparc:        codparc || null,
-    invoice_number: String(nf).replace(/\D/g, '') || String(nunota).replace(/\D/g, ''),
+    invoice_number: nfFinal,
     item_type:      cod,
     item_name:      descr || NOMES[cod] || cod,
     qty:            parseFloat(String(qty).replace(',', '.')) || 0,
