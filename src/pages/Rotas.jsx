@@ -51,9 +51,12 @@ function ModalEditar({ rota, onFechar, onSalvo }) {
         };
         const { data: rotaCriada } = await supabase.from('routes').insert([novaRota]).select().single();
         if (rotaCriada) {
-          // Transferir stops pendentes
-          for (const stop of stopsPendentes) {
-            await supabase.from('stops').update({ route_id: rotaCriada.id, status: 'pending', updated_at: new Date().toISOString() }).eq('id', stop.id);
+          // CORREÇÃO: batch update em vez de loop serial
+          const stopIds = stopsPendentes.map(s => s.stop_id).filter(Boolean);
+          if (stopIds.length > 0) {
+            await supabase.from('stops')
+              .update({ route_id: rotaCriada.id, status: 'pending', updated_at: new Date().toISOString() })
+              .in('stop_id', stopIds);
           }
         }
         alert('Transbordo realizado! Nova rota ' + novaRota.trip_number + ' criada com ' + stopsPendentes.length + ' paradas.');
@@ -295,17 +298,13 @@ export default function Rotas() {
   const load = async () => {
     setLoading(true);
     try {
-      const [rotasData, rotasPendentes, rotasPlanned] = await Promise.all([
-        getRoutes({ date: data }),
-        getRoutes({ status: 'pending', date: data }),
-        getRoutes({ status: 'planned', date: data }),
-      ]);
-      const todas = [];
-      [...(rotasPendentes || []), ...(rotasPlanned || []), ...(rotasData || [])].forEach(r => {
-        if (!todas.find(t => t.id === r.id)) todas.push(r);
-      });
-      setRotas(todas);
-    } catch(e) { setRotas([]); }
+      // CORREÇÃO: 1 query com todos os status em vez de 3 queries redundantes
+      const rotasData = await getRoutes({ date: data });
+      setRotas(Array.isArray(rotasData) ? rotasData : []);
+    } catch(e) {
+      console.error('Rotas load:', e);
+      setRotas([]);
+    }
     finally { setLoading(false); }
   };
 

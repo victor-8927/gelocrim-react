@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { getOrders, getRoutes, getVehicles, getDrivers } from '../services/supabase';
+import { getOrders, getRoutes, getVehicles, getDrivers, supabase } from '../services/supabase';
 import { RefreshCw, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -29,20 +29,26 @@ export default function Dashboard() {
     return () => clearInterval(t);
   }, []);
 
+  const [configDiesel, setConfigDiesel] = useState({ kmPerLiter: 3, fuelPrice: 7.59 });
+
   const load = async () => {
     setLoading(true);
     try {
-      const [p, r, v, d] = await Promise.all([
+      const [p, r, v, d, cfg] = await Promise.all([
         getOrders({ limit: 1000, date: hojeManaus() }).catch(() => []),
         getRoutes({ date: hojeManaus() }).catch(() => []),
         getVehicles().catch(() => []),
         getDrivers().catch(() => []),
+        supabase.from('configuracoes').select('chave,valor').in('chave', ['preco_diesel']).catch(() => ({ data: [] })),
       ]);
       setPedidos(Array.isArray(p) ? p : []);
       setRotas(Array.isArray(r) ? r : []);
       setVeiculos(Array.isArray(v) ? v : []);
       setMotoristas(Array.isArray(d) ? d : []);
-    } finally { setLoading(false); }
+      const pd = (cfg.data || []).find(c => c.chave === 'preco_diesel');
+      if (pd) setConfigDiesel(prev => ({ ...prev, fuelPrice: parseFloat(pd.valor) || 7.59 }));
+    } catch(e) { console.error('Dashboard load:', e); }
+    finally { setLoading(false); }
   };
 
   useEffect(() => { load(); }, []); // eslint-disable-line
@@ -99,14 +105,12 @@ export default function Dashboard() {
   }, 0);
 
   // Custo diesel baseado em KM real
-  const kmPerLiter  = 3;
-  const fuelPrice   = 7.59;
-  const custoDiesel = kmHoje > 0 ? (kmHoje / kmPerLiter) * fuelPrice : 0;
+  const custoDiesel = kmHoje > 0 ? (kmHoje / configDiesel.kmPerLiter) * configDiesel.fuelPrice : 0;
 
   // Canhotos pendentes — stops delivered sem photo_receipt
   const canhotos = rotas.reduce((s, r) => {
     const stops = r.stops || [];
-    return s + stops.filter(st => st.status === 'delivered' && !st.photo_receipt).length;
+    return s + stops.filter(st => st.status === 'delivered' && !st.canhoto_url).length;
   }, 0);
 
   // Retornos — stops com status failed ou rescheduled
