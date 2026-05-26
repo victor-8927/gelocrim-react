@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { getRoutes } from '../services/supabase';
+import { getRoutes, supabase } from '../services/supabase';
 import { RefreshCw } from 'lucide-react';
 
 export default function Monitoramento() {
@@ -21,8 +21,13 @@ export default function Monitoramento() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const rotasData = await getRoutes({ date: hojeManaus() });
-      setRotas(Array.isArray(rotasData) ? rotasData : []);
+      const [rotasData, ativas] = await Promise.all([
+        getRoutes({ date: hojeManaus() }),
+        supabase.from('routes').select('*, stops(*)').eq('status', 'in_progress'),
+      ]);
+      const hoje = Array.isArray(rotasData) ? rotasData : [];
+      const cross = (ativas.data || []).filter(r => !hoje.find(h => h.id === r.id));
+      setRotas([...hoje, ...cross]);
     } catch (e) { console.error('Monitoramento load:', e); }
     finally { setLoading(false); }
   }, []); // eslint-disable-line
