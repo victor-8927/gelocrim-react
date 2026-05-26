@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { getOrders, getClients, getVehicles, getDrivers } from '../services/supabase';
+import { getOrders, getClients, getVehicles, getDrivers, supabase } from '../services/supabase';
 import { RefreshCw, Zap, ChevronRight } from 'lucide-react';
 import ConferenciaMaster from './ConferenciaMaster';
 
@@ -70,6 +70,24 @@ export default function Roteirizacao() {
       const cliMap = {};
       clisArr.forEach(c => { if (c.codparc) cliMap[c.codparc] = c; });
 
+      // Buscar order_items de todos os pedidos pendentes para montar mix detalhado
+      const invoiceNumbers = ordersArr.map(o => o.external_id).filter(Boolean);
+      let orderItemsArr = [];
+      if (invoiceNumbers.length > 0) {
+        const { data: oisData } = await supabase
+          .from('order_items')
+          .select('invoice_number, item_type, item_name, qty, weight_unit, top_app')
+          .in('invoice_number', invoiceNumbers);
+        orderItemsArr = oisData || [];
+      }
+
+      // Indexar order_items por invoice_number
+      const itemsByInvoice = {};
+      orderItemsArr.forEach(item => {
+        if (!itemsByInvoice[item.invoice_number]) itemsByInvoice[item.invoice_number] = [];
+        itemsByInvoice[item.invoice_number].push(item);
+      });
+
       const clienteMap = {};
       ordersArr.forEach(o => {
         const key = o.codparc || o.recipient_name;
@@ -88,21 +106,40 @@ export default function Roteirizacao() {
             bairro:         cli?.district || '',
             service_time:   parseInt(cli?.service_time) || 20,
             order_ids:      [],
-            // pedidos: array com objeto completo de cada pedido — necessário para mix por TOP
             pedidos:        [],
+            itens:          [], // ← mix detalhado: qtd por produto/TOP
             weight_kg:      0,
             volume_m3:      0,
             total_value:    0,
           };
         }
         clienteMap[key].order_ids.push(o.id);
-        // Guarda objeto completo para calcular mix por TOP corretamente
+        // Pedido completo para mix por TOP
+        const itensDoPedido = itemsByInvoice[o.external_id] || [];
         clienteMap[key].pedidos.push({
-          id:          o.id,
-          external_id: o.external_id,
-          order_type:  String(o.order_type || '1000'),
-          total_value: parseFloat(o.total_value) || 0,
-          weight_kg:   parseFloat(o.weight_kg)   || 0,
+          id:           o.id,
+          external_id:  o.external_id,
+          order_type:   String(o.order_type || '1000'),
+          total_value:  parseFloat(o.total_value) || 0,
+          weight_kg:    parseFloat(o.weight_kg)   || 0,
+          order_items:  itensDoPedido,
+        });
+        // Acumular itens individuais para sumário rápido na tela
+        itensDoPedido.forEach(item => {
+          const existing = clienteMap[key].itens.find(
+            i => i.item_type === item.item_type && i.top_app === item.top_app
+          );
+          if (existing) {
+            existing.qty += parseFloat(item.qty) || 0;
+          } else {
+            clienteMap[key].itens.push({
+              item_type:   item.item_type,
+              item_name:   item.item_name,
+              top_app:     item.top_app || '1000',
+              qty:         parseFloat(item.qty) || 0,
+              weight_unit: parseFloat(item.weight_unit) || 0,
+            });
+          }
         });
         clienteMap[key].weight_kg   += parseFloat(o.weight_kg)   || 0;
         clienteMap[key].volume_m3   += parseFloat(o.volume_m3)   || 0;
@@ -370,6 +407,15 @@ export default function Roteirizacao() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 11, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.recipient_name}</div>
                   <div style={{ fontSize: 10, color: '#90afd4' }}>{c.weight_kg?.toFixed(0)} kg</div>
+                  {(c.itens || []).length > 0 && (
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 2 }}>
+                      {c.itens.map((item, ii) => (
+                        <span key={ii} style={{ fontSize: 9, background: item.top_app === '1000' ? 'rgba(16,185,129,.2)' : item.top_app === '1009' ? 'rgba(245,158,11,.2)' : 'rgba(167,139,250,.2)', color: item.top_app === '1000' ? '#10b981' : item.top_app === '1009' ? '#f59e0b' : '#a78bfa', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>
+                          {Math.round(item.qty)}× {item.item_name?.replace('GELO ', '')}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <button onClick={() => setSelecionados(prev => { const n = { ...prev }; delete n[c.id]; return n; })}
                   style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 2 }}>✕</button>

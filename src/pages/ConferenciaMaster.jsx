@@ -186,6 +186,20 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
   const pesoTotal = ordem.reduce((s, o) => s + (parseFloat(o.weight_kg) || (parseFloat(o.peso) || 0)), 0);
   const volTotal = ordem.reduce((s, o) => s + (parseFloat(o.volume_m3) || (parseFloat(o.weight_kg) || 0) * 0.001), 0);
   const fatTotal = ordem.reduce((s, o) => s + (parseFloat(o.total_value) || 0), 0);
+  // Faturamento real: apenas TOP 1000 (Vendas) — base correta para margem operacional
+  const fatVenda = ordem.reduce((s, o) => {
+    const pedidos = Array.isArray(o.pedidos) ? o.pedidos : [];
+    if (pedidos.length > 0) {
+      return s + pedidos
+        .filter(p => String(p.order_type) === '1000')
+        .reduce((ps, p) => ps + (parseFloat(p.total_value) || 0), 0);
+    }
+    // Fallback: se o cliente não tem pedidos detalhados, usa total_value só se order_type === '1000'
+    if (String(o.order_type || o.top || '1000') === '1000') {
+      return s + (parseFloat(o.total_value) || 0);
+    }
+    return s;
+  }, 0);
   const palletsEst = Math.ceil(pesoTotal / 1150) || 0;
   const capKg = parseFloat(veiculo?.capacity_kg || 5000);
   const capM3 = parseFloat(veiculo?.capacity_m3 || 20); // eslint-disable-line
@@ -201,8 +215,8 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
   const custoEquipeBruto = parseFloat(motorista?.daily_cost || 0) + ajudantes.reduce((s, a) => s + parseFloat(a?.daily_cost || 0), 0);
   const custoDia = tipoOp === 'unica' ? custoEquipeBruto : (tipoOp === '1viagem' || tipoOp === '2viagem') ? custoEquipeBruto / 2 : custoEquipeBruto;
   const custoTotal = custoDia + custoDiesel + custoManut + ipvaDia;
-  const lucro = fatTotal - custoTotal;
-  const margem = fatTotal > 0 ? (lucro / fatTotal * 100) : 0;
+  const lucro = fatVenda - custoTotal;
+  const margem = fatVenda > 0 ? (lucro / fatVenda * 100) : 0;
   const corMargem = margem >= 20 ? '#10b981' : margem >= 10 ? '#f59e0b' : '#ef4444';
 
   const ultimo = ordem[ordem.length - 1];
@@ -331,7 +345,7 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
         custo_diesel:         parseFloat(custoDiesel.toFixed(2)),
         custo_manutencao:     parseFloat((custoManut + ipvaDia).toFixed(2)),
         custo_total:          parseFloat(custoTotal.toFixed(2)),
-        faturamento_previsto: parseFloat(fatTotal.toFixed(2)),
+        faturamento_previsto: parseFloat(fatVenda.toFixed(2)), // TOP 1000 apenas
         margem_percentual:    parseFloat(margem.toFixed(2)),
         geometria_caminho:    geometriaCaminho || null,
       });
@@ -675,6 +689,42 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
 
               <div style={{ height: 1, background: '#1e3a5c', margin: '12px 0' }} />
 
+              {/* Sacos por Produto — Totais */}
+              {(() => {
+                const totaisProduto = {};
+                ordem.forEach(o => {
+                  (o.itens || []).forEach(item => {
+                    const key = item.item_type + '_' + item.top_app;
+                    if (!totaisProduto[key]) totaisProduto[key] = { item_name: item.item_name, item_type: item.item_type, top_app: item.top_app, qty: 0, weight_unit: item.weight_unit };
+                    totaisProduto[key].qty += item.qty;
+                  });
+                });
+                const linhas = Object.values(totaisProduto).sort((a, b) => a.item_type.localeCompare(b.item_type));
+                if (linhas.length === 0) return null;
+                return (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#00FFEA', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 10 }}>🧊 SACOS POR PRODUTO</div>
+                    {linhas.map((l, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid rgba(30,58,92,.5)' }}>
+                        <span style={{ fontSize: 11, color: '#90afd4' }}>{l.item_name}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 9, background: l.top_app === '1000' ? 'rgba(16,185,129,.2)' : 'rgba(167,139,250,.2)', color: l.top_app === '1000' ? '#10b981' : '#a78bfa', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>TOP {l.top_app}</span>
+                          <span style={{ fontSize: 13, fontWeight: 900, color: '#e8f0fe' }}>{Math.round(l.qty)} un</span>
+                        </div>
+                      </div>
+                    ))}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#e8f0fe' }}>Total sacos</span>
+                      <span style={{ fontSize: 13, fontWeight: 900, color: '#00FFEA' }}>
+                        {Math.round(linhas.reduce((s, l) => s + l.qty, 0))} un
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div style={{ height: 1, background: '#1e3a5c', margin: '12px 0' }} />
+
               {/* Margem Operacional */}
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 10 }}>📊 MARGEM OPERACIONAL</div>
@@ -690,11 +740,11 @@ export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudan
                   </div>
                 ))}
                 <div style={{ marginTop: 10, padding: 10, background: margem >= 20 ? 'rgba(16,185,129,.15)' : margem >= 10 ? 'rgba(245,158,11,.15)' : 'rgba(248,113,113,.15)', borderRadius: 8, border: `1px solid ${corMargem}`, textAlign: 'center' }}>
-                  <div style={{ fontSize: 20 }}>{fatTotal === 0 ? '⚠️' : margem >= 20 ? '🟢' : margem >= 10 ? '🟡' : '🔴'}</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: corMargem }}>{fatTotal > 0 ? `${margem.toFixed(1)}%` : '—'}</div>
-                  <div style={{ fontSize: 10, color: '#90afd4' }}>{fatTotal > 0 ? 'Margem Operacional' : 'Complete os cadastros para calcular'}</div>
+                  <div style={{ fontSize: 20 }}>{fatVenda === 0 ? '⚠️' : margem >= 20 ? '🟢' : margem >= 10 ? '🟡' : '🔴'}</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: corMargem }}>{fatVenda > 0 ? `${margem.toFixed(1)}%` : '—'}</div>
+                  <div style={{ fontSize: 10, color: '#90afd4' }}>{fatVenda > 0 ? 'Margem s/ TOP 1000 (Vendas)' : 'Complete os cadastros para calcular'}</div>
                 </div>
-                {margem < 0 && fatTotal > 0 && (
+                {margem < 0 && fatVenda > 0 && (
                   <div style={{ marginTop: 8 }}>
                     <div style={{ fontSize: 10, color: '#ef4444', marginBottom: 4 }}>⚠️ Margem Negativa — Justificativa Obrigatória</div>
                     <textarea placeholder="Justificativa..." style={{ width: '100%', background: '#0a1628', border: '1px solid #ef4444', color: '#e8f0fe', borderRadius: 6, padding: '6px 8px', fontSize: 11, resize: 'none' }} rows={2} />
