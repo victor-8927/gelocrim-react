@@ -170,7 +170,7 @@ export default function Dashboard() {
   const rotasHoje   = rotas.length;
   const paradasHoje = rotas.reduce((s, r) => s + (r.total_stops || (r.stops || []).length || 0), 0);
   const veicAtivos  = veiculos.filter(v => v.status === 'active').length;
-  const motoristas_ = motoristas.filter(m => m.type === 'driver' || !m.type).length || motoristas.length;
+  const motoristas_ = motoristas.filter(m => m.type === 'driver').length;
 
   const kmHoje = rotas.reduce((s, r) => {
     const inicio = parseFloat(r.km_start || 0);
