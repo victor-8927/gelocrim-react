@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { getRoutes, getVehicles, getDrivers, supabase } from '../services/supabase';
+import { getRoutes, supabase } from '../services/supabase';
 import { RefreshCw, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
