@@ -13,6 +13,7 @@ const navItems = [
     { to: '/pedidos', icon: Package, label: 'Pedidos' },
     { to: '/roteirizacao', icon: Zap, label: 'Roteirizacao' },
     { to: '/rotas', icon: Map, label: 'Rotas' },
+    { to: '/retornos', icon: RotateCcw, label: 'Retornos' },
     { to: '/monitoramento', icon: Radio, label: 'Monitoramento' },
     { to: '/ocorrencias', icon: AlertTriangle, label: 'Ocorrencias' },
   ]},
