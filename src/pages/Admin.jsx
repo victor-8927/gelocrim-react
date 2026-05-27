@@ -11,17 +11,26 @@ export default function Admin() {
   const [precoDiesel, setPrecoDiesel] = useState('7.59');
   const [tipoDiesel, setTipoDiesel] = useState('S10');
   const [salvandoDiesel, setSalvandoDiesel] = useState(false);
+  const [metas, setMetas] = useState({
+    mes_ano: new Date().toISOString().slice(0,7),
+    faturamento: '', vol_05kg: '', vol_10kg: '', vol_20kg: '', vol_40kg: '',
+    teto_devolucao: '8', teto_retorno: '8', teto_trocas: '5'
+  });
+  const [salvandoMetas, setSalvandoMetas] = useState(false);
 
   const load = async () => {
     setLoading(true);
     try {
-      const [rotas, pedidos, , motoristas, diesel] = await Promise.all([
+      const args = await Promise.all([
+
         supabase.from('routes').select('id, status, trip_number, route_date').order('created_at', { ascending: false }).limit(100),
         supabase.from('orders').select('id, status').limit(1000),
         Promise.resolve({ data: [] }),
         supabase.from('drivers').select('id, status').limit(100),
         supabase.from('configuracoes').select('chave, valor').in('chave', ['preco_diesel', 'tipo_diesel']),
+        supabase.from('metas').select('*').order('mes_ano', { ascending: false }).limit(12),
       ]);
+      const [rotas, pedidos, , motoristas, diesel] = args;
       setStats({
         totalRotas: rotas.data?.length || 0,
         rotasPendentes: rotas.data?.filter(r => r.status === 'pending').length || 0,
@@ -29,6 +38,10 @@ export default function Admin() {
         pedidosPendentes: pedidos.data?.filter(p => p.status === 'pending').length || 0,
         motoristasAtivos: motoristas.data?.filter(d => d.status === 'active').length || 0,
       });
+      if (args[4]?.data?.length > 0) {
+        const m = args[4].data[0];
+        setMetas({ mes_ano: m.mes_ano, faturamento: m.faturamento, vol_05kg: m.vol_05kg, vol_10kg: m.vol_10kg, vol_20kg: m.vol_20kg, vol_40kg: m.vol_40kg, teto_devolucao: m.teto_devolucao, teto_retorno: m.teto_retorno, teto_trocas: m.teto_trocas });
+      }
       if (diesel.data) {
         const pd = diesel.data.find(c => c.chave === 'preco_diesel');
         const td = diesel.data.find(c => c.chave === 'tipo_diesel');
@@ -73,6 +86,26 @@ export default function Admin() {
       .eq('status', 'delivered').lt('delivery_date', dataLimite);
     if (!error) setMsg('✅ Pedidos antigos removidos!');
     else setMsg('Erro: ' + error.message);
+  };
+
+  const salvarMetas = async () => {
+    setSalvandoMetas(true);
+    try {
+      const { error } = await supabase.from('metas').upsert({
+        mes_ano: metas.mes_ano,
+        faturamento: parseFloat(metas.faturamento) || 0,
+        vol_05kg: parseInt(metas.vol_05kg) || 0,
+        vol_10kg: parseInt(metas.vol_10kg) || 0,
+        vol_20kg: parseInt(metas.vol_20kg) || 0,
+        vol_40kg: parseInt(metas.vol_40kg) || 0,
+        teto_devolucao: parseFloat(metas.teto_devolucao) || 8,
+        teto_retorno: parseFloat(metas.teto_retorno) || 8,
+        teto_trocas: parseFloat(metas.teto_trocas) || 5,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'mes_ano' });
+      if (!error) setMsg('✅ Metas de ' + metas.mes_ano + ' salvas com sucesso!');
+      else setMsg('❌ Erro: ' + error.message);
+    } finally { setSalvandoMetas(false); }
   };
 
   const liberarTodasRotas = async () => {
@@ -241,6 +274,78 @@ export default function Admin() {
               💾 Salvar Configurações
             </button>
           </div>
+        </div>
+
+
+        {/* Metas e Tetos Operacionais */}
+        <div className="card" style={{ gridColumn: '1 / -1' }}>
+          <div style={{ fontSize:11, fontWeight:700, color:'#10b981', textTransform:'uppercase', letterSpacing:'1px', marginBottom:16 }}>
+            🎯 METAS E TETOS OPERACIONAIS
+          </div>
+
+          {/* Seletor de mês */}
+          <div style={{ marginBottom:16 }}>
+            <div style={{ fontSize:10, color:'#90afd4', marginBottom:4 }}>MÊS DE REFERÊNCIA</div>
+            <input type="month" value={metas.mes_ano}
+              onChange={e => setMetas(p => ({ ...p, mes_ano: e.target.value }))}
+              style={{ background:'#0a1628', border:'1px solid #1e3a5c', color:'#e8f0fe', borderRadius:6, padding:'6px 10px', fontSize:13 }} />
+          </div>
+
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+            {/* Metas de faturamento e volume */}
+            <div>
+              <div style={{ fontSize:10, color:'#90afd4', textTransform:'uppercase', letterSpacing:'1px', marginBottom:10 }}>💰 METAS DE FATURAMENTO E VOLUME</div>
+              {[
+                { label:'Meta de Faturamento (R$)', campo:'faturamento', placeholder:'Ex: 1450570.00', prefix:'R$' },
+                { label:'Meta Volume GELO 05KG (sacos)', campo:'vol_05kg', placeholder:'Ex: 35000', prefix:'un' },
+                { label:'Meta Volume GELO 10KG (sacos)', campo:'vol_10kg', placeholder:'Ex: 30000', prefix:'un' },
+                { label:'Meta Volume GELO 20KG (sacos)', campo:'vol_20kg', placeholder:'Ex: 20000', prefix:'un' },
+                { label:'Meta Volume GELO 40KG (sacos)', campo:'vol_40kg', placeholder:'Ex: 18000', prefix:'un' },
+              ].map(f => (
+                <div key={f.campo} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid #1e3a5c' }}>
+                  <span style={{ fontSize:12, color:'#90afd4' }}>{f.label}</span>
+                  <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                    <span style={{ fontSize:11, color:'#90afd4' }}>{f.prefix}</span>
+                    <input type="number" value={metas[f.campo]} placeholder={f.placeholder}
+                      onChange={e => setMetas(p => ({ ...p, [f.campo]: e.target.value }))}
+                      style={{ width:120, background:'#0a1628', border:'1px solid #10b981', color:'#10b981', borderRadius:6, padding:'4px 8px', fontSize:13, fontWeight:700, textAlign:'right' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Tetos operacionais */}
+            <div>
+              <div style={{ fontSize:10, color:'#90afd4', textTransform:'uppercase', letterSpacing:'1px', marginBottom:10 }}>🚨 TETOS OPERACIONAIS (% máximo permitido)</div>
+              {[
+                { label:'Teto Devoluções / Venda (%)', campo:'teto_devolucao', desc:'Máximo de devoluções sobre faturamento' },
+                { label:'Teto Retorno de Sacos (%)', campo:'teto_retorno', desc:'Máximo de sacos retornados sobre total entregue' },
+                { label:'Teto Trocas (%)', campo:'teto_trocas', desc:'Máximo de trocas sobre total operado' },
+              ].map(f => (
+                <div key={f.campo} style={{ padding:'10px 0', borderBottom:'1px solid #1e3a5c' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
+                    <span style={{ fontSize:12, color:'#90afd4' }}>{f.label}</span>
+                    <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                      <input type="number" step="0.1" min="0" max="100" value={metas[f.campo]}
+                        onChange={e => setMetas(p => ({ ...p, [f.campo]: e.target.value }))}
+                        style={{ width:70, background:'#0a1628', border:'1px solid #ef4444', color:'#ef4444', borderRadius:6, padding:'4px 8px', fontSize:14, fontWeight:700, textAlign:'center' }} />
+                      <span style={{ fontSize:11, color:'#ef4444' }}>%</span>
+                    </div>
+                  </div>
+                  <div style={{ fontSize:10, color:'#90afd4' }}>{f.desc}</div>
+                </div>
+              ))}
+
+              <div style={{ marginTop:16, padding:'10px', background:'rgba(16,185,129,.05)', border:'1px solid rgba(16,185,129,.2)', borderRadius:8, fontSize:11, color:'#90afd4', lineHeight:1.6 }}>
+                💡 Esses tetos alimentam os gauges do Dashboard em tempo real. Quando um indicador ultrapassar o teto, o sistema gera alerta automático.
+              </div>
+            </div>
+          </div>
+
+          <button onClick={salvarMetas} disabled={salvandoMetas}
+            style={{ marginTop:16, width:'100%', padding:'13px', background:'rgba(16,185,129,.15)', border:'1px solid #10b981', color:'#10b981', borderRadius:8, cursor:'pointer', fontWeight:700, fontSize:13 }}>
+            {salvandoMetas ? '⏳ Salvando...' : '💾 Salvar Metas e Tetos de ' + metas.mes_ano}
+          </button>
         </div>
 
       </div>
