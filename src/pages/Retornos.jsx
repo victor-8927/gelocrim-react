@@ -22,11 +22,6 @@ const DESTINOS = {
   'descarte': '🗑️ Descarte',
 };
 
-const TOP_LABELS = {
-  '1000': { label: 'Venda', cor: '#10b981', bg: 'rgba(16,185,129,.2)' },
-  '1009': { label: 'Troca', cor: '#f59e0b', bg: 'rgba(245,158,11,.2)' },
-  '1007': { label: 'Bonificação', cor: '#a78bfa', bg: 'rgba(167,139,250,.2)' },
-};
 
 export default function Retornos() {
   const [loading, setLoading] = useState(true);
