@@ -50,8 +50,8 @@ export default function Dashboard() {
       const [rotasHojeRes, rotasAtivasRes, veiculosRes, motoristasRes, cfg] = await Promise.all([
         getRoutes({ date: hoje }).catch(() => []),
         supabase.from('routes').select('*, stops(stop_id,status,canhoto_url,nf_url,weight_kg,recipient_name,address,sequence,lat,lng,eta)').eq('status','in_progress').catch(() => ({ data: [] })),
-        getVehicles().catch(() => []),
-        getDrivers().catch(() => []),
+        supabase.from('vehicles').select('id,status,plate,model').catch(() => ({ data: [] })),
+        supabase.from('drivers').select('id,name,type,status,cpf').catch(() => ({ data: [] })),
         supabase.from('configuracoes').select('chave,valor').in('chave', ['preco_diesel']).catch(() => ({ data: [] })),
       ]);
 
@@ -81,8 +81,8 @@ export default function Dashboard() {
       const todosPedidos = [...pedidosData, ...(pedPendentes || []).filter(p => !pedidosData.find(pd => pd.id === p.id))];
       setPedidos(todosPedidos);
 
-      setVeiculos(Array.isArray(veiculosRes) ? veiculosRes : []);
-      setMotoristas(Array.isArray(motoristasRes) ? motoristasRes : []);
+      setVeiculos(veiculosRes?.data || []);
+      setMotoristas(motoristasRes?.data || []);
       const pd = (cfg.data || []).find(c => c.chave === 'preco_diesel');
       if (pd) setConfigDiesel(prev => ({ ...prev, fuelPrice: parseFloat(pd.valor) || 7.59 }));
       // Buscar meta do mês
@@ -230,8 +230,8 @@ export default function Dashboard() {
   // ── ROTAS ────────────────────────────────────────────────────────────────────
   const rotasHoje   = rotas.length;
   const paradasHoje = rotas.reduce((s, r) => s + (r.total_stops || (r.stops || []).length || 0), 0);
-  const veicAtivos  = veiculos.filter(v => v.status === 'active').length;
-  const motoristas_ = motoristas.filter(m => m.type === 'driver').length;
+  const veicAtivos  = veiculos.filter(v => !v.status || v.status === 'active').length;
+  const motoristas_ = motoristas.filter(m => m.type === 'driver').length || motoristas.filter(m => !m.type).length;
 
   const kmHoje = rotas.reduce((s, r) => {
     const inicio = parseFloat(r.km_start || 0);
