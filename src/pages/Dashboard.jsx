@@ -153,7 +153,6 @@ export default function Dashboard() {
   const entregues    = pedidos.filter(p => p.status === 'delivered').length;
   const falhas       = pedidos.filter(p => p.status === 'failed').length;
   const reentregas   = pedidos.filter(p => p.status === 'rescheduled').length;
-  const total        = pendentes + emRota + entregues + falhas + reentregas;
 
   const saldoPendente  = pedidos.filter(p => (p.is_saldo || p.order_type === '1010') && p.status === 'pending').length;
   const saldoRetornado = pedidos.filter(p => (p.is_saldo || p.order_type === '1010') && p.status === 'failed').length;
