@@ -14,9 +14,9 @@ export default function Dashboard() {
   const [hora, setHora]           = useState(new Date());
   const mapRef  = useRef(null);
   const mapObj  = useRef(null);
+  const markersRef = useRef([]);
   const navigate = useNavigate();
 
-  // Data hoje em Manaus (UTC-4)
   const hojeManaus = () => new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   const diasSemana = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
@@ -34,17 +34,45 @@ export default function Dashboard() {
   const load = async () => {
     setLoading(true);
     try {
-      const [p, r, v, d, cfg] = await Promise.all([
-        getOrders({ limit: 1000, date: hojeManaus() }).catch(() => []),
-        getRoutes({ date: hojeManaus() }).catch(() => []),
+      const hoje = hojeManaus();
+
+      // Busca rotas: do dia + in_progress de qualquer data
+      const [rotasHojeRes, rotasAtivasRes, veiculosRes, motoristasRes, cfg] = await Promise.all([
+        getRoutes({ date: hoje }).catch(() => []),
+        supabase.from('routes').select('*, stops(stop_id,status,canhoto_url,nf_url,weight_kg,recipient_name,address,sequence,lat,lng,eta)').eq('status','in_progress').catch(() => ({ data: [] })),
         getVehicles().catch(() => []),
         getDrivers().catch(() => []),
         supabase.from('configuracoes').select('chave,valor').in('chave', ['preco_diesel']).catch(() => ({ data: [] })),
       ]);
-      setPedidos(Array.isArray(p) ? p : []);
-      setRotas(Array.isArray(r) ? r : []);
-      setVeiculos(Array.isArray(v) ? v : []);
-      setMotoristas(Array.isArray(d) ? d : []);
+
+      const rotasHoje = Array.isArray(rotasHojeRes) ? rotasHojeRes : [];
+      const rotasAtivas = (rotasAtivasRes.data || []).filter(ra => !rotasHoje.find(rh => rh.id === ra.id));
+      const todasRotas = [...rotasHoje, ...rotasAtivas];
+      setRotas(todasRotas);
+
+      // Busca pedidos das rotas ativas — independente de data
+      const routeIds = todasRotas.map(r => r.id).filter(Boolean);
+      let pedidosData = [];
+      if (routeIds.length > 0) {
+        const { data: pedRota } = await supabase
+          .from('orders')
+          .select('id,status,order_type,weight_kg,total_value,is_saldo,route_id')
+          .in('route_id', routeIds)
+          .catch(() => ({ data: [] }));
+        pedidosData = pedRota || [];
+      }
+      // Pedidos pendentes sem rota
+      const { data: pedPendentes } = await supabase
+        .from('orders')
+        .select('id,status,order_type,weight_kg,total_value,is_saldo,route_id')
+        .eq('status', 'pending')
+        .catch(() => ({ data: [] }));
+      
+      const todosPedidos = [...pedidosData, ...(pedPendentes || []).filter(p => !pedidosData.find(pd => pd.id === p.id))];
+      setPedidos(todosPedidos);
+
+      setVeiculos(Array.isArray(veiculosRes) ? veiculosRes : []);
+      setMotoristas(Array.isArray(motoristasRes) ? motoristasRes : []);
       const pd = (cfg.data || []).find(c => c.chave === 'preco_diesel');
       if (pd) setConfigDiesel(prev => ({ ...prev, fuelPrice: parseFloat(pd.valor) || 7.59 }));
     } catch(e) { console.error('Dashboard load:', e); }
@@ -53,7 +81,13 @@ export default function Dashboard() {
 
   useEffect(() => { load(); }, []); // eslint-disable-line
 
-  // Inicializa mapa
+  // Auto-refresh a cada 30s
+  useEffect(() => {
+    const t = setInterval(load, 30000);
+    return () => clearInterval(t);
+  }, []); // eslint-disable-line
+
+  // Mapa — inicializa
   useEffect(() => {
     if (!mapRef.current || !window.google) return;
     if (!mapObj.current) {
@@ -62,26 +96,69 @@ export default function Dashboard() {
         styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }]
       });
       new window.google.maps.Marker({
-        position: DEPOSITO, map: mapObj.current, title: 'Deposito',
+        position: DEPOSITO, map: mapObj.current, title: 'Depósito GELOCRIM',
         icon: { path: window.google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: '#e8521a', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 }
       });
     }
   }, []);
 
+  // Mapa — pins dos clientes e caminhões
+  useEffect(() => {
+    if (!mapObj.current || !window.google) return;
+    // Limpar markers antigos
+    markersRef.current.forEach(m => m.setMap(null));
+    markersRef.current = [];
+
+    rotas.forEach(r => {
+      // Pin do caminhão
+      if (r.current_lat && r.current_lng && r.status === 'in_progress') {
+        const mk = new window.google.maps.Marker({
+          position: { lat: parseFloat(r.current_lat), lng: parseFloat(r.current_lng) },
+          map: mapObj.current,
+          title: `${r.driver_name || 'Motorista'} — ${r.trip_number}`,
+          icon: {
+            path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+            scale: 6, fillColor: '#e8521a', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2,
+          }
+        });
+        markersRef.current.push(mk);
+      }
+      // Pins dos clientes
+      (r.stops || []).forEach(stop => {
+        if (!stop.lat || !stop.lng) return;
+        const cor = stop.status === 'delivered' ? '#10b981' : stop.status === 'failed' ? '#ef4444' : '#64B4FF';
+        const mk = new window.google.maps.Marker({
+          position: { lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) },
+          map: mapObj.current,
+          title: stop.recipient_name,
+          icon: { path: window.google.maps.SymbolPath.CIRCLE, scale: 6, fillColor: cor, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 1 }
+        });
+        markersRef.current.push(mk);
+      });
+    });
+
+    // Centralizar no mapa se tem rotas ativas
+    const ativas = rotas.filter(r => r.current_lat && r.current_lng);
+    if (ativas.length > 0) {
+      const bounds = new window.google.maps.LatLngBounds();
+      bounds.extend(DEPOSITO);
+      ativas.forEach(r => bounds.extend({ lat: parseFloat(r.current_lat), lng: parseFloat(r.current_lng) }));
+      mapObj.current.fitBounds(bounds);
+    }
+  }, [rotas]);
+
   // ── PEDIDOS ──────────────────────────────────────────────────────────────────
   const pendentes    = pedidos.filter(p => p.status === 'pending').length;
-  const emRota       = pedidos.filter(p => p.status === 'routed').length;
+  const emRota       = pedidos.filter(p => p.status === 'routed' || p.status === 'in_progress').length;
   const entregues    = pedidos.filter(p => p.status === 'delivered').length;
   const falhas       = pedidos.filter(p => p.status === 'failed').length;
   const reentregas   = pedidos.filter(p => p.status === 'rescheduled').length;
-  const total        = pendentes + emRota + entregues + falhas;
+  const total        = pendentes + emRota + entregues + falhas + reentregas;
   const progresso    = total > 0 ? Math.round(entregues / total * 100) : 0;
 
-  // Saldo — usa is_saldo quando disponível, senão order_type 1010
   const saldoPendente  = pedidos.filter(p => (p.is_saldo || p.order_type === '1010') && p.status === 'pending').length;
   const saldoRetornado = pedidos.filter(p => (p.is_saldo || p.order_type === '1010') && p.status === 'failed').length;
 
-  // Mix de carga por TOP — 1000=Venda, 1009=Troca, 1007=Bonificação, 1010=Pré-pedido
   const pesoVenda  = pedidos.filter(p => p.order_type === '1000').reduce((s, p) => s + (parseFloat(p.weight_kg) || 0), 0);
   const pesoTroca  = pedidos.filter(p => p.order_type === '1009').reduce((s, p) => s + (parseFloat(p.weight_kg) || 0), 0);
   const pesoBonif  = pedidos.filter(p => p.order_type === '1007').reduce((s, p) => s + (parseFloat(p.weight_kg) || 0), 0);
@@ -93,39 +170,37 @@ export default function Dashboard() {
 
   // ── ROTAS ────────────────────────────────────────────────────────────────────
   const rotasHoje   = rotas.length;
-  const paradasHoje = rotas.reduce((s, r) => s + (r.total_stops || 0), 0);
+  const paradasHoje = rotas.reduce((s, r) => s + (r.total_stops || (r.stops || []).length || 0), 0);
   const veicAtivos  = veiculos.filter(v => v.status === 'active').length;
-  const motoristas_ = motoristas.filter(m => m.type === 'driver').length;
+  const motoristas_ = motoristas.filter(m => m.type === 'driver' || !m.type).length || motoristas.length;
 
-  // KM percorrido real — km_end - km_start (só rotas que encerraram)
   const kmHoje = rotas.reduce((s, r) => {
     const inicio = parseFloat(r.km_start || 0);
     const fim    = parseFloat(r.km_end || 0);
     return s + (fim > inicio ? fim - inicio : 0);
   }, 0);
 
-  // Custo diesel baseado em KM real
   const custoDiesel = kmHoje > 0 ? (kmHoje / configDiesel.kmPerLiter) * configDiesel.fuelPrice : 0;
 
-  // Canhotos pendentes — stops delivered sem photo_receipt
   const canhotos = rotas.reduce((s, r) => {
     const stops = r.stops || [];
     return s + stops.filter(st => st.status === 'delivered' && !st.canhoto_url).length;
   }, 0);
 
-  // Retornos — stops com status failed ou rescheduled
   const retornos = rotas.reduce((s, r) => {
     const stops = r.stops || [];
     return s + stops.filter(st => st.status === 'failed').length;
   }, 0);
 
-  // Rotas longas — em campo há mais de 8h
   const rotasLongas = rotas.filter(r => {
     if (!r.started_at || r.status !== 'in_progress') return false;
-    const inicio = new Date(r.started_at);
-    const agora  = new Date();
-    return (agora - inicio) > 8 * 60 * 60 * 1000;
+    return (new Date() - new Date(r.started_at)) > 8 * 60 * 60 * 1000;
   }).length;
+
+  // Entregas concluídas nas rotas
+  const entreguesRotas = rotas.reduce((s, r) => s + (r.completed_stops || (r.stops || []).filter(st => st.status === 'delivered').length || 0), 0);
+  const totalParadas   = rotas.reduce((s, r) => s + (r.total_stops || (r.stops || []).length || 0), 0);
+  const progressoRotas = totalParadas > 0 ? Math.round(entreguesRotas / totalParadas * 100) : 0;
 
   const horaStr = hora.toLocaleTimeString('pt-BR');
 
@@ -149,12 +224,12 @@ export default function Dashboard() {
       <div className="card" style={{ padding: '14px 20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <span style={{ fontSize: 13, fontWeight: 700 }}>📊 Progresso da Operação do Dia</span>
-          <span style={{ fontSize: 13, color: '#64B4FF', fontWeight: 700 }}>{progresso}% concluído</span>
+          <span style={{ fontSize: 13, color: '#64B4FF', fontWeight: 700 }}>{progressoRotas}% concluído</span>
         </div>
         <div style={{ height: 10, background: '#1e3a5c', borderRadius: 5, overflow: 'hidden', marginBottom: 6 }}>
-          <div style={{ height: '100%', width: `${progresso}%`, background: progresso >= 80 ? '#10b981' : progresso >= 50 ? '#f59e0b' : '#64B4FF', borderRadius: 5, transition: 'width .5s' }} />
+          <div style={{ height: '100%', width: `${progressoRotas}%`, background: progressoRotas >= 80 ? '#10b981' : progressoRotas >= 50 ? '#f59e0b' : '#64B4FF', borderRadius: 5, transition: 'width .5s' }} />
         </div>
-        <div style={{ fontSize: 12, color: '#90afd4' }}>{entregues} entregues · {total} total</div>
+        <div style={{ fontSize: 12, color: '#90afd4' }}>{entreguesRotas} entregues · {totalParadas} total</div>
       </div>
 
       {/* Grid principal */}
@@ -178,7 +253,7 @@ export default function Dashboard() {
                 <div key={k.label} style={{ background: '#0a1628', borderRadius: 10, padding: 10, border: '1px solid #1e3a5c', textAlign: 'center' }}>
                   <div style={{ fontSize: 16 }}>{k.emoji}</div>
                   <div style={{ fontSize: 10, color: '#90afd4', marginBottom: 2 }}>{k.label}</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: k.cor }}>{k.value}</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: k.cor }}>{loading ? '...' : k.value}</div>
                   <div style={{ fontSize: 10, color: '#90afd4' }}>{k.sub}</div>
                 </div>
               ))}
@@ -190,17 +265,17 @@ export default function Dashboard() {
             <div style={{ fontSize: 11, fontWeight: 700, color: '#64B4FF', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 12 }}>🚛 OPERAÇÃO</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8 }}>
               {[
-                { emoji: '🗺️', label: 'Rotas Hoje',    value: rotasHoje,                       cor: '#64B4FF',  sub: 'criadas' },
-                { emoji: '📍', label: 'Paradas',       value: paradasHoje,                      cor: '#a78bfa',  sub: 'total' },
+                { emoji: '🗺️', label: 'Rotas Hoje',    value: rotasHoje,                                cor: '#64B4FF',  sub: 'criadas' },
+                { emoji: '📍', label: 'Paradas',       value: paradasHoje,                               cor: '#a78bfa',  sub: 'total' },
                 { emoji: '🛣️', label: 'KM Percorrido', value: kmHoje > 0 ? kmHoje.toFixed(0) + ' km' : '—', cor: '#f59e0b', sub: 'real hoje' },
                 { emoji: '⛽', label: 'Custo Diesel',  value: custoDiesel > 0 ? 'R$ ' + custoDiesel.toFixed(0) : '—', cor: '#ef4444', sub: 'estimado' },
-                { emoji: '🚐', label: 'Frota Ativa',   value: veicAtivos,                       cor: '#10b981',  sub: 'veículos' },
-                { emoji: '👨‍💼', label: 'Motoristas',   value: motoristas_,                      cor: '#10b981',  sub: 'cadastrados' },
+                { emoji: '🚐', label: 'Frota Ativa',   value: veicAtivos,                                cor: '#10b981',  sub: 'veículos' },
+                { emoji: '👨‍💼', label: 'Motoristas',   value: motoristas_,                               cor: '#10b981',  sub: 'cadastrados' },
               ].map(k => (
                 <div key={k.label} style={{ background: '#0a1628', borderRadius: 10, padding: 10, border: '1px solid #1e3a5c', textAlign: 'center' }}>
                   <div style={{ fontSize: 14 }}>{k.emoji}</div>
                   <div style={{ fontSize: 10, color: '#90afd4', marginBottom: 2 }}>{k.label}</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: k.cor }}>{k.value}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: k.cor }}>{loading ? '...' : k.value}</div>
                   <div style={{ fontSize: 10, color: '#90afd4' }}>{k.sub}</div>
                 </div>
               ))}
@@ -216,7 +291,7 @@ export default function Dashboard() {
               <span style={{ fontSize: 11, fontWeight: 700, color: '#64B4FF', textTransform: 'uppercase', letterSpacing: '1px' }}>📍 ROTAS ATIVAS</span>
               <button onClick={() => navigate('/monitoramento')} style={{ background: 'none', border: 'none', color: '#64B4FF', fontSize: 11, cursor: 'pointer' }}>⛶ Expandir</button>
             </div>
-            <div ref={mapRef} style={{ height: 180 }} />
+            <div ref={mapRef} style={{ height: 320 }} />
           </div>
 
           {/* Alertas */}
@@ -285,11 +360,12 @@ export default function Dashboard() {
           </thead>
           <tbody>
             {rotas.length === 0 ? (
-              <tr><td colSpan={6} style={{ textAlign: 'center', color: '#90afd4', padding: 20 }}>Nenhuma rota hoje</td></tr>
+              <tr><td colSpan={6} style={{ textAlign: 'center', color: '#90afd4', padding: 20 }}>{loading ? 'Carregando...' : 'Nenhuma rota hoje'}</td></tr>
             ) : rotas.slice(0, 8).map(r => {
-              const done  = r.completed_stops || 0;
-              const total = r.total_stops || 0;
-              const pct   = total > 0 ? Math.round(done / total * 100) : 0;
+              const stopsArr = r.stops || [];
+              const done  = r.completed_stops || stopsArr.filter(s => s.status === 'delivered').length;
+              const tot   = r.total_stops || stopsArr.length;
+              const pct   = tot > 0 ? Math.round(done / tot * 100) : 0;
               const kmReal = (parseFloat(r.km_end || 0) - parseFloat(r.km_start || 0));
               return (
                 <tr key={r.id}>
@@ -300,16 +376,16 @@ export default function Dashboard() {
                       <div style={{ width: 60, height: 4, background: '#1e3a5c', borderRadius: 2, overflow: 'hidden' }}>
                         <div style={{ height: '100%', width: `${pct}%`, background: '#10b981', borderRadius: 2 }} />
                       </div>
-                      <span style={{ color: '#90afd4' }}>{done}/{total}</span>
+                      <span style={{ color: '#90afd4' }}>{done}/{tot}</span>
                     </div>
                   </td>
-                  <td style={{ fontSize: 12, color: '#90afd4' }}>{r.planned_start || '—'}</td>
+                  <td style={{ fontSize: 12, color: '#90afd4' }}>{r.planned_start || r.started_at?.slice(11,16) || '—'}</td>
                   <td style={{ fontSize: 12, color: kmReal > 0 ? '#f59e0b' : '#90afd4' }}>{kmReal > 0 ? kmReal.toFixed(0) + ' km' : '—'}</td>
                   <td>
                     <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, fontWeight: 700,
                       background: r.status === 'completed' ? 'rgba(16,185,129,.2)' : r.status === 'in_progress' ? 'rgba(249,115,22,.2)' : 'rgba(100,180,255,.2)',
                       color: r.status === 'completed' ? '#10b981' : r.status === 'in_progress' ? '#f97316' : '#64B4FF' }}>
-                      {r.status === 'completed' ? 'Concluída' : r.status === 'in_progress' ? 'Em Rota' : 'Liberada'}
+                      {r.status === 'completed' ? '✅ Concluída' : r.status === 'in_progress' ? '🟠 Em Rota' : '🟢 Liberada'}
                     </span>
                   </td>
                 </tr>
