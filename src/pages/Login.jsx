@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../services/supabase';
 
 // ── FOTOS DE MANAUS ───────────────────────────────────────────────────────────
 var FOTOS = [
@@ -143,9 +144,30 @@ export default function Login() {
   var [loading, setLoading]     = useState(false);
   var [focusEmail, setFocusEmail] = useState(false);
   var [focusPass, setFocusPass]   = useState(false);
+  var [modoRecuperar, setModoRecuperar] = useState(false);
+  var [emailRecuperar, setEmailRecuperar] = useState('');
+  var [msgRecuperar, setMsgRecuperar] = useState('');
+  var [loadingRecuperar, setLoadingRecuperar] = useState(false);
 
   var { login } = useAuth();
   var navigate  = useNavigate();
+
+  var handleRecuperar = async function(e) {
+    e.preventDefault();
+    setLoadingRecuperar(true);
+    setMsgRecuperar('');
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(emailRecuperar, {
+        redirectTo: window.location.origin + '/reset-password',
+      });
+      if (error) throw error;
+      setMsgRecuperar('✅ Email enviado! Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.');
+    } catch (err) {
+      setMsgRecuperar('❌ ' + (err.message || 'Erro ao enviar email. Verifique o endereço informado.'));
+    } finally {
+      setLoadingRecuperar(false);
+    }
+  };
 
   var handleSubmit = async function(e) {
     e.preventDefault();
@@ -163,6 +185,43 @@ export default function Login() {
       setLoading(false);
     }
   };
+
+  if (modoRecuperar) return (
+    <div style={{ minHeight: '100vh', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+      <Slideshow />
+      <Snowflakes />
+      <div style={{ position: 'relative', zIndex: 2, width: '100%', maxWidth: 440, padding: '0 20px', animation: 'fadeInUp 0.8s ease forwards' }}>
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div style={{ fontSize: 48, marginBottom: 8 }}>🔑</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: '#fff', marginBottom: 4 }}>Recuperar Senha</div>
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>Informe seu email para receber o link de redefinição</div>
+        </div>
+        <div style={{ background: 'rgba(10,25,50,0.85)', backdropFilter: 'blur(20px)', border: '1px solid rgba(100,180,255,0.2)', borderRadius: 20, padding: 32, boxShadow: '0 25px 50px rgba(0,0,0,0.5)' }}>
+          <form onSubmit={handleRecuperar}>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#64B4FF', letterSpacing: 1.5, marginBottom: 8, textTransform: 'uppercase' }}>Email cadastrado</label>
+              <input type="email" value={emailRecuperar} onChange={function(e) { setEmailRecuperar(e.target.value); }}
+                placeholder="seu@email.com" required
+                style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: '1.5px solid rgba(100,180,255,0.3)', borderRadius: 12, padding: '14px 16px', color: '#fff', fontSize: 15, outline: 'none' }} />
+            </div>
+            {msgRecuperar && (
+              <div style={{ background: msgRecuperar.startsWith('✅') ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', border: `1px solid ${msgRecuperar.startsWith('✅') ? 'rgba(16,185,129,0.4)' : 'rgba(239,68,68,0.4)'}`, borderRadius: 10, padding: '10px 14px', color: msgRecuperar.startsWith('✅') ? '#10b981' : '#ef4444', fontSize: 13, marginBottom: 16, lineHeight: 1.5 }}>
+                {msgRecuperar}
+              </div>
+            )}
+            <button type="submit" disabled={loadingRecuperar}
+              style={{ width: '100%', padding: '15px', background: loadingRecuperar ? 'rgba(100,180,255,0.3)' : 'linear-gradient(135deg, #1e3a5c, #64B4FF)', border: 'none', borderRadius: 12, color: '#fff', fontSize: 14, fontWeight: 800, cursor: loadingRecuperar ? 'not-allowed' : 'pointer' }}>
+              {loadingRecuperar ? '⏳ Enviando...' : '📧 ENVIAR LINK DE RECUPERAÇÃO'}
+            </button>
+          </form>
+          <button onClick={function() { setModoRecuperar(false); setMsgRecuperar(''); }}
+            style={{ width: '100%', marginTop: 12, padding: '12px', background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, color: 'rgba(255,255,255,0.4)', fontSize: 13, cursor: 'pointer' }}>
+            ← Voltar ao login
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div style={{ minHeight: '100vh', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
@@ -218,6 +277,13 @@ export default function Login() {
                 ⚠️ {error}
               </div>
             )}
+
+            <div style={{ textAlign: 'right', marginTop: -16, marginBottom: 20 }}>
+              <button type="button" onClick={function() { setModoRecuperar(true); setEmailRecuperar(email); }}
+                style={{ background: 'none', border: 'none', color: '#64B4FF', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}>
+                Esqueci minha senha
+              </button>
+            </div>
 
             <button type="submit" disabled={loading}
               style={{ width: '100%', padding: '15px', background: loading ? 'rgba(232,82,26,0.5)' : 'linear-gradient(135deg, #e8521a, #ff6b35)', border: 'none', borderRadius: 12, color: '#fff', fontSize: 14, fontWeight: 800, letterSpacing: 1.5, cursor: loading ? 'not-allowed' : 'pointer', transition: 'all 0.2s', boxShadow: loading ? 'none' : '0 4px 20px rgba(232,82,26,0.4)' }}>
