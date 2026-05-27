@@ -456,19 +456,38 @@ export default function Dashboard() {
 
       {/* Retorno de Produtos */}
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '1px' }}>↩️ Retorno de Produtos</span>
-          <button onClick={() => navigate('/rotas')} style={{ background: 'none', border: 'none', color: '#64B4FF', fontSize: 12, cursor: 'pointer' }}>Detalhar</button>
+          <button onClick={() => navigate('/retornos')} style={{ background: 'none', border: 'none', color: '#64B4FF', fontSize: 12, cursor: 'pointer' }}>Ver detalhes →</button>
         </div>
-        <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: retornos > 0 ? '#ef4444' : '#10b981' }}>{retornos}</div>
-            <div style={{ fontSize: 11, color: '#90afd4' }}>paradas recusadas hoje</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+          <div style={{ background: '#0a1628', border: '1px solid #1e3a5c', borderRadius: 8, padding: 10, textAlign: 'center' }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: retornos > 0 ? '#ef4444' : '#10b981' }}>{retornos}</div>
+            <div style={{ fontSize: 10, color: '#90afd4' }}>paradas c/ retorno</div>
           </div>
-          <div style={{ fontSize: 12, color: retornos > 0 ? '#ef4444' : '#10b981' }}>
-            {retornos > 0 ? `⚠️ ${retornos} entrega(s) não realizadas` : '✅ Sem retornos hoje'}
+          <div style={{ background: '#0a1628', border: '1px solid #1e3a5c', borderRadius: 8, padding: 10, textAlign: 'center' }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#f59e0b' }}>
+              {rotas.reduce((s, r) => {
+                const stops = r.stops || [];
+                return s + stops.filter(st => st.status === 'failed' && st.canhoto_url === null).length;
+              }, 0)}
+            </div>
+            <div style={{ fontSize: 10, color: '#90afd4' }}>sem canhoto</div>
+          </div>
+          <div style={{ background: '#0a1628', border: '1px solid #1e3a5c', borderRadius: 8, padding: 10, textAlign: 'center' }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#64B4FF' }}>—</div>
+            <div style={{ fontSize: 10, color: '#90afd4' }}>sacos voltaram</div>
           </div>
         </div>
+        {retornos === 0 && (
+          <div style={{ marginTop: 10, fontSize: 12, color: '#10b981', textAlign: 'center' }}>✅ Sem retornos hoje</div>
+        )}
+        {retornos > 0 && (
+          <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(239,68,68,.1)', border: '1px solid rgba(239,68,68,.3)', borderRadius: 8, fontSize: 12, color: '#ef4444', cursor: 'pointer' }}
+            onClick={() => navigate('/retornos')}>
+            ⚠️ {retornos} entrega(s) com retorno — clique para detalhar por produto e motivo
+          </div>
+        )}
       </div>
 
 
