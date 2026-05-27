@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { getOrders, getRoutes, getVehicles, getDrivers, supabase } from '../services/supabase';
+import { getRoutes, getVehicles, getDrivers, supabase } from '../services/supabase';
 import { RefreshCw, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -154,7 +154,6 @@ export default function Dashboard() {
   const falhas       = pedidos.filter(p => p.status === 'failed').length;
   const reentregas   = pedidos.filter(p => p.status === 'rescheduled').length;
   const total        = pendentes + emRota + entregues + falhas + reentregas;
-  const progresso    = total > 0 ? Math.round(entregues / total * 100) : 0;
 
   const saldoPendente  = pedidos.filter(p => (p.is_saldo || p.order_type === '1010') && p.status === 'pending').length;
   const saldoRetornado = pedidos.filter(p => (p.is_saldo || p.order_type === '1010') && p.status === 'failed').length;
