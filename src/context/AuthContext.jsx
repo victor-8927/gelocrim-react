@@ -3,7 +3,6 @@ import { supabase } from '../services/supabase';
 
 const AuthContext = createContext(null);
 
-// Busca perfil com timeout de 5 segundos
 const fetchProfile = async (supabaseUser) => {
   if (!supabaseUser) return null;
 
@@ -14,35 +13,56 @@ const fetchProfile = async (supabaseUser) => {
     role: 'user',
   };
 
-  try {
-    const result = await Promise.race([
-      supabase
-        .from('user_profiles')
-        .select('name, role')
-        .eq('id', supabaseUser.id)
-        .maybeSingle(),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('timeout')), 5000)
-      ),
-    ]);
+  // Tenta até 3 vezes com timeout crescente
+  for (let tentativa = 1; tentativa <= 3; tentativa++) {
+    try {
+      const { data, error } = await Promise.race([
+        supabase
+          .from('user_profiles')
+          .select('name, role')
+          .eq('id', supabaseUser.id)
+          .maybeSingle(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), tentativa * 5000)
+        ),
+      ]);
 
-    if (result?.data) {
+      if (data) {
+        return {
+          id: supabaseUser.id,
+          email: supabaseUser.email,
+          name: data.name || supabaseUser.email,
+          role: data.role || 'user',
+        };
+      }
+
+      if (error) console.warn(`fetchProfile tentativa ${tentativa} erro:`, error.message);
+    } catch (e) {
+      console.warn(`fetchProfile tentativa ${tentativa} falhou:`, e.message);
+      if (tentativa < 3) await new Promise(r => setTimeout(r, 1000));
+    }
+  }
+
+  // Fallback: tenta pelo email diretamente
+  try {
+    const { data } = await supabase
+      .from('user_profiles')
+      .select('name, role')
+      .eq('email', supabaseUser.email)
+      .maybeSingle();
+    if (data) {
       return {
         id: supabaseUser.id,
         email: supabaseUser.email,
-        name: result.data.name || supabaseUser.email,
-        role: result.data.role || 'user',
+        name: data.name || supabaseUser.email,
+        role: data.role || 'user',
       };
     }
-
-    // Se não achou perfil, usa o role do metadata do Supabase Auth
-    const metaRole = supabaseUser.user_metadata?.role || 'user';
-    return { ...defaultProfile, role: metaRole };
-
   } catch (e) {
-    console.warn('fetchProfile falhou, usando padrão:', e.message);
-    return defaultProfile;
+    console.warn('fetchProfile fallback email falhou:', e.message);
   }
+
+  return defaultProfile;
 };
 
 export function AuthProvider({ children }) {
