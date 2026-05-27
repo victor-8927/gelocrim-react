@@ -230,7 +230,8 @@ export default function Dashboard() {
   // ── ROTAS ────────────────────────────────────────────────────────────────────
   const rotasHoje   = rotas.length;
   const paradasHoje = rotas.reduce((s, r) => s + (r.total_stops || (r.stops || []).length || 0), 0);
-  const veicAtivos  = veiculos.filter(v => !v.status || v.status === 'active').length;
+  const TIPOS_VEICULO = ['accelo','caminhao_toco','caminhao_truck','hr','muck','van','furgao'];
+  const veicAtivos  = veiculos.filter(v => v.status === 'active' && TIPOS_VEICULO.includes(v.type)).length || veiculos.filter(v => v.status === 'active' && v.type !== 'container' && v.type !== 'cavalo').length;
   const motoristas_ = motoristas.filter(m => m.type === 'driver').length || motoristas.filter(m => !m.type).length;
 
   const kmHoje = rotas.reduce((s, r) => {
