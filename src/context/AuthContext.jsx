@@ -6,51 +6,38 @@ const AuthContext = createContext(null);
 const fetchProfile = async (supabaseUser) => {
   if (!supabaseUser) return null;
 
-  const defaultProfile = {
-    id: supabaseUser.id,
-    email: supabaseUser.email,
-    name: supabaseUser.email,
-    role: 'user',
-  };
+  // 1. Tenta pegar role do metadata do Auth — instantâneo, sem query
+  const metaRole = supabaseUser.user_metadata?.role;
+  const metaName = supabaseUser.user_metadata?.name;
 
-  // Tenta até 3 vezes com timeout crescente
-  for (let tentativa = 1; tentativa <= 3; tentativa++) {
-    try {
-      const { data, error } = await Promise.race([
-        supabase
-          .from('user_profiles')
-          .select('name, role')
-          .eq('id', supabaseUser.id)
-          .maybeSingle(),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('timeout')), tentativa * 5000)
-        ),
-      ]);
-
-      if (data) {
-        return {
-          id: supabaseUser.id,
-          email: supabaseUser.email,
-          name: data.name || supabaseUser.email,
-          role: data.role || 'user',
-        };
-      }
-
-      if (error) console.warn(`fetchProfile tentativa ${tentativa} erro:`, error.message);
-    } catch (e) {
-      console.warn(`fetchProfile tentativa ${tentativa} falhou:`, e.message);
-      if (tentativa < 3) await new Promise(r => setTimeout(r, 1000));
-    }
+  if (metaRole) {
+    return {
+      id: supabaseUser.id,
+      email: supabaseUser.email,
+      name: metaName || supabaseUser.email,
+      role: metaRole,
+    };
   }
 
-  // Fallback: tenta pelo email diretamente
+  // 2. Fallback: tenta buscar da tabela user_profiles com timeout generoso
   try {
-    const { data } = await supabase
-      .from('user_profiles')
-      .select('name, role')
-      .eq('email', supabaseUser.email)
-      .maybeSingle();
+    const { data } = await Promise.race([
+      supabase
+        .from('user_profiles')
+        .select('name, role')
+        .eq('id', supabaseUser.id)
+        .maybeSingle(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 10000)
+      ),
+    ]);
+
     if (data) {
+      // Salvar no metadata para próximas vezes
+      await supabase.auth.updateUser({
+        data: { role: data.role, name: data.name }
+      }).catch(() => {});
+
       return {
         id: supabaseUser.id,
         email: supabaseUser.email,
@@ -59,10 +46,16 @@ const fetchProfile = async (supabaseUser) => {
       };
     }
   } catch (e) {
-    console.warn('fetchProfile fallback email falhou:', e.message);
+    console.warn('fetchProfile tabela falhou:', e.message);
   }
 
-  return defaultProfile;
+  // 3. Último fallback
+  return {
+    id: supabaseUser.id,
+    email: supabaseUser.email,
+    name: supabaseUser.email,
+    role: 'user',
+  };
 };
 
 export function AuthProvider({ children }) {
