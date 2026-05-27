@@ -293,6 +293,9 @@ export default function Rotas() {
   const [rotaEditar, setRotaEditar] = useState(null);
   const [aba, setAba] = useState('pendentes');
   const [liberando, setLiberando] = useState(null);
+  const [rotaResumo, setRotaResumo] = useState(null); // Modal resumo de carga antes de liberar
+  const [resumoItens, setResumoItens] = useState([]);
+  const [carregandoResumo, setCarregandoResumo] = useState(false);
   const [selecionados, setSelecionados] = useState({});
 
   const load = async () => {
@@ -306,6 +309,69 @@ export default function Rotas() {
       setRotas([]);
     }
     finally { setLoading(false); }
+  };
+
+  const abrirResumo = async (rota) => {
+    setCarregandoResumo(true);
+    setRotaResumo(rota);
+    try {
+      // Buscar stops da rota
+      const { data: stops } = await supabase
+        .from('stops')
+        .select('stop_id, recipient_name, address, sequence, weight_kg, lat, lng')
+        .eq('route_id', rota.id)
+        .order('sequence');
+
+      // Buscar order_items de todos os stops
+      const stopIds = (stops || []).map(s => s.stop_id);
+      let itens = [];
+      if (stopIds.length > 0) {
+        const { data: stopItems } = await supabase
+          .from('stop_items')
+          .select('item_name, item_type, top_app, order_type, qty_planejada, weight_unit')
+          .in('stop_id', stopIds);
+        itens = stopItems || [];
+      }
+
+      // Consolidar por produto
+      const mapa = {};
+      itens.forEach(item => {
+        const key = item.item_type + '_' + (item.top_app || item.order_type || '1000');
+        if (!mapa[key]) {
+          mapa[key] = {
+            item_name: item.item_name,
+            item_type: item.item_type,
+            top_app: item.top_app || item.order_type || '1000',
+            qty: 0,
+            peso_total: 0,
+          };
+        }
+        mapa[key].qty += parseFloat(item.qty_planejada || 0);
+        mapa[key].peso_total += parseFloat(item.qty_planejada || 0) * parseFloat(item.weight_unit || 0);
+      });
+
+      // Se não tem stop_items, usar peso dos stops como fallback
+      if (itens.length === 0 && stops) {
+        stops.forEach(s => {
+          const key = 'fallback_1000';
+          if (!mapa[key]) mapa[key] = { item_name: 'Carga total', item_type: '', top_app: '1000', qty: 0, peso_total: 0 };
+          mapa[key].peso_total += parseFloat(s.weight_kg || 0);
+        });
+      }
+
+      setResumoItens({ 
+        produtos: Object.values(mapa).sort((a, b) => a.item_type.localeCompare(b.item_type)),
+        stops: stops || [],
+        totalPeso: (stops || []).reduce((s, st) => s + parseFloat(st.weight_kg || 0), 0),
+        totalClientes: (stops || []).length,
+        totalValor: rota.total_value || 0,
+      });
+    } catch(e) {
+      console.error('Erro ao carregar resumo:', e);
+      setResumoItens({ produtos: [], stops: [], totalPeso: 0, totalClientes: 0, totalValor: 0 });
+    } finally {
+      setCarregandoResumo(false);
+    }
   };
 
   const liberarRota = async (rota) => {
@@ -479,9 +545,9 @@ export default function Rotas() {
                           </button>
                         )}
                         {r.status === 'pending' && (
-                          <button onClick={() => liberarRota(r)} disabled={liberando === r.id}
+                          <button onClick={() => abrirResumo(r)} disabled={liberando === r.id}
                             style={{ background:'rgba(16,185,129,.2)', border:'1px solid #10b981', color:'#10b981', borderRadius:6, padding:'4px 10px', cursor:'pointer', fontSize:12, fontWeight:700 }}>
-                            {liberando === r.id ? '...' : '✅ Liberar'}
+                            {liberando === r.id ? '...' : '📋 Ver Carga e Liberar'}
                           </button>
                         )}
                         {r.status === 'planned' && (
@@ -507,6 +573,103 @@ export default function Rotas() {
       </div>
 
       {rotaSel    && <ModalRota    rota={rotaSel}    onFechar={() => setRotaSel(null)} />}
+
+      {/* Modal Resumo de Carga */}
+      {rotaResumo && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.7)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+          <div style={{ background:'#0f2035', border:'1px solid #1e3a5c', borderRadius:16, width:'100%', maxWidth:700, maxHeight:'90vh', overflow:'auto', padding:28 }}>
+            {/* Header */}
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20 }}>
+              <div>
+                <div style={{ fontSize:18, fontWeight:800, color:'#e8521a' }}>📋 Resumo de Carga</div>
+                <div style={{ fontSize:13, color:'#90afd4', marginTop:4 }}>{rotaResumo.trip_number} · {rotaResumo.driver_name} · {rotaResumo.vehicle_name}</div>
+              </div>
+              <button onClick={() => { setRotaResumo(null); setResumoItens([]); }}
+                style={{ background:'none', border:'none', color:'#90afd4', fontSize:22, cursor:'pointer', lineHeight:1 }}>×</button>
+            </div>
+
+            {carregandoResumo ? (
+              <div style={{ textAlign:'center', padding:40, color:'#90afd4' }}>Carregando carga...</div>
+            ) : (
+              <>
+                {/* KPIs */}
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10, marginBottom:20 }}>
+                  {[
+                    { label:'Clientes', value: resumoItens.totalClientes || 0, cor:'#64B4FF', emoji:'📍' },
+                    { label:'Peso Total', value: `${((resumoItens.totalPeso || 0)/1000).toFixed(2)} t`, cor:'#f59e0b', emoji:'⚖️' },
+                    { label:'Valor Total', value: `R$ ${((resumoItens.totalValor || 0)/1000).toFixed(1)}k`, cor:'#10b981', emoji:'💰' },
+                  ].map(k => (
+                    <div key={k.label} style={{ background:'#0a1628', border:'1px solid #1e3a5c', borderRadius:10, padding:12, textAlign:'center' }}>
+                      <div style={{ fontSize:18 }}>{k.emoji}</div>
+                      <div style={{ fontSize:20, fontWeight:800, color:k.cor, marginTop:4 }}>{k.value}</div>
+                      <div style={{ fontSize:11, color:'#90afd4' }}>{k.label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Produtos por TOP */}
+                {['1000','1009','1007'].map(top => {
+                  const topLabel = top === '1000' ? '🛒 Vendas' : top === '1009' ? '🔄 Trocas' : '🎁 Bonificação';
+                  const topCor = top === '1000' ? '#10b981' : top === '1009' ? '#f59e0b' : '#a78bfa';
+                  const itens = (resumoItens.produtos || []).filter(p => p.top_app === top);
+                  if (itens.length === 0) return null;
+                  return (
+                    <div key={top} style={{ marginBottom:16 }}>
+                      <div style={{ fontSize:11, fontWeight:700, color:topCor, textTransform:'uppercase', letterSpacing:'1px', marginBottom:8, paddingBottom:6, borderBottom:`1px solid rgba(${top==='1000'?'16,185,129':top==='1009'?'245,158,11':'167,139,250'},.3)` }}>
+                        {topLabel} (TOP {top})
+                      </div>
+                      {itens.map((item, i) => (
+                        <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 0', borderBottom:'1px solid rgba(30,58,92,.4)' }}>
+                          <span style={{ fontSize:13, fontWeight:600 }}>{item.item_name}</span>
+                          <div style={{ display:'flex', gap:16, alignItems:'center' }}>
+                            <span style={{ fontSize:13, color:topCor, fontWeight:800 }}>{Math.round(item.qty)} sacos</span>
+                            <span style={{ fontSize:11, color:'#90afd4' }}>{(item.peso_total/1000).toFixed(2)} t</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+
+                {/* Fallback se não tem itens */}
+                {(resumoItens.produtos || []).length === 0 && (
+                  <div style={{ textAlign:'center', padding:20, color:'#90afd4', fontSize:13 }}>
+                    ⚠️ Detalhes por produto não disponíveis. Peso total: {((resumoItens.totalPeso||0)/1000).toFixed(2)} t
+                  </div>
+                )}
+
+                {/* Sequência de clientes */}
+                <div style={{ marginTop:16, marginBottom:20 }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:'#64B4FF', textTransform:'uppercase', letterSpacing:'1px', marginBottom:10 }}>📍 SEQUÊNCIA DE ENTREGA</div>
+                  {(resumoItens.stops || []).map((stop, i) => (
+                    <div key={stop.stop_id} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', borderBottom:'1px solid rgba(30,58,92,.4)' }}>
+                      <div style={{ width:24, height:24, borderRadius:'50%', background:'#1e3a5c', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, color:'#64B4FF', flexShrink:0 }}>{stop.sequence || i+1}</div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:13, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{stop.recipient_name}</div>
+                        <div style={{ fontSize:11, color:'#90afd4' }}>{stop.address}</div>
+                      </div>
+                      <span style={{ fontSize:12, color:'#f59e0b', fontWeight:700, flexShrink:0 }}>{parseFloat(stop.weight_kg||0).toFixed(0)} kg</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Botões */}
+                <div style={{ display:'flex', gap:10 }}>
+                  <button onClick={() => { setRotaResumo(null); setResumoItens([]); }}
+                    style={{ flex:1, padding:13, background:'rgba(239,68,68,.15)', border:'1px solid #ef4444', color:'#ef4444', borderRadius:10, cursor:'pointer', fontWeight:700, fontSize:13 }}>
+                    ✕ Cancelar
+                  </button>
+                  <button onClick={() => { const r = rotaResumo; setRotaResumo(null); setResumoItens([]); liberarRota(r); }}
+                    disabled={liberando === rotaResumo?.id}
+                    style={{ flex:2, padding:13, background:'linear-gradient(135deg, rgba(16,185,129,.3), rgba(16,185,129,.5))', border:'1px solid #10b981', color:'#10b981', borderRadius:10, cursor:'pointer', fontWeight:800, fontSize:14 }}>
+                    {liberando === rotaResumo?.id ? '⏳ Liberando...' : '✅ CONFIRMAR E LIBERAR ROTA'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
       {rotaEditar && <ModalEditar  rota={rotaEditar} onFechar={() => setRotaEditar(null)} onSalvo={load} />}
     </div>
   );
