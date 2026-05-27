@@ -11,8 +11,9 @@ export default function Admin() {
   const [precoDiesel, setPrecoDiesel] = useState('7.59');
   const [tipoDiesel, setTipoDiesel] = useState('S10');
   const [salvandoDiesel, setSalvandoDiesel] = useState(false);
+  const mesAtualInit = new Date().toISOString().slice(0,7);
   const [metas, setMetas] = useState({
-    mes_ano: new Date().toISOString().slice(0,7),
+    mes_ano: mesAtualInit,
     faturamento: '', vol_05kg: '', vol_10kg: '', vol_20kg: '', vol_40kg: '',
     teto_devolucao: '8', teto_retorno: '8', teto_trocas: '5'
   });
@@ -21,16 +22,14 @@ export default function Admin() {
   const load = async () => {
     setLoading(true);
     try {
-      const args = await Promise.all([
+      const [rotas, pedidos, , motoristas, diesel] = await Promise.all([
 
         supabase.from('routes').select('id, status, trip_number, route_date').order('created_at', { ascending: false }).limit(100),
         supabase.from('orders').select('id, status').limit(1000),
         Promise.resolve({ data: [] }),
         supabase.from('drivers').select('id, status').limit(100),
         supabase.from('configuracoes').select('chave, valor').in('chave', ['preco_diesel', 'tipo_diesel']),
-        supabase.from('metas').select('*').order('mes_ano', { ascending: false }).limit(12),
       ]);
-      const [rotas, pedidos, , motoristas, diesel] = args;
       setStats({
         totalRotas: rotas.data?.length || 0,
         rotasPendentes: rotas.data?.filter(r => r.status === 'pending').length || 0,
@@ -38,9 +37,21 @@ export default function Admin() {
         pedidosPendentes: pedidos.data?.filter(p => p.status === 'pending').length || 0,
         motoristasAtivos: motoristas.data?.filter(d => d.status === 'active').length || 0,
       });
-      if (args[4]?.data?.length > 0) {
-        const m = args[4].data[0];
-        setMetas({ mes_ano: m.mes_ano, faturamento: m.faturamento, vol_05kg: m.vol_05kg, vol_10kg: m.vol_10kg, vol_20kg: m.vol_20kg, vol_40kg: m.vol_40kg, teto_devolucao: m.teto_devolucao, teto_retorno: m.teto_retorno, teto_trocas: m.teto_trocas });
+      // Buscar metas do mês atual
+      const mesAtual = new Date().toISOString().slice(0,7);
+      const { data: metasData } = await supabase.from('metas').select('*').eq('mes_ano', mesAtual).single().catch(() => ({ data: null }));
+      if (metasData) {
+        setMetas({
+          mes_ano: metasData.mes_ano,
+          faturamento: String(metasData.faturamento || ''),
+          vol_05kg: String(metasData.vol_05kg || ''),
+          vol_10kg: String(metasData.vol_10kg || ''),
+          vol_20kg: String(metasData.vol_20kg || ''),
+          vol_40kg: String(metasData.vol_40kg || ''),
+          teto_devolucao: String(metasData.teto_devolucao || '8'),
+          teto_retorno: String(metasData.teto_retorno || '8'),
+          teto_trocas: String(metasData.teto_trocas || '5'),
+        });
       }
       if (diesel.data) {
         const pd = diesel.data.find(c => c.chave === 'preco_diesel');
