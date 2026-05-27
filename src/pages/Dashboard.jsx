@@ -37,7 +37,7 @@ export default function Dashboard() {
   const [volMes20, setVolMes20]       = useState(0);
   const [volMes40, setVolMes40]       = useState(0);
   const [pctDevolucao, setPctDevolucao] = useState(0);
-  const [pctRetorno, setPctRetorno]   = useState(0);
+  const [pctRetorno]                  = useState(0);
   const [pctTrocas, setPctTrocas]     = useState(0);
   const [tendencia, setTendencia]     = useState([]);
 
@@ -92,13 +92,6 @@ export default function Dashboard() {
 
       // Buscar faturamento e volume do mês
       const inicioMes = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-      const { data: faturamentoData } = await supabase
-        .from('stops')
-        .select('weight_kg, nf_url, status, created_at, order_id')
-        .eq('status', 'delivered')
-        .gte('created_at', inicioMes)
-        .catch(() => ({ data: [] }));
-
       // Buscar order_items do mês para volume por produto
       const { data: itemsMes } = await supabase
         .from('stop_items')
@@ -123,13 +116,6 @@ export default function Dashboard() {
       }
 
       // Buscar faturamento do mês por dia para tendência
-      const { data: tendenciaData } = await supabase
-        .from('routes')
-        .select('route_date, completed_stops, total_stops')
-        .gte('route_date', inicioMes.slice(0,10))
-        .eq('status', 'completed')
-        .catch(() => ({ data: [] }));
-
       // Agrupa por data — peso entregue por dia
       const { data: stopsPorDia } = await supabase
         .from('stops')
