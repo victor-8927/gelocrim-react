@@ -22,6 +22,16 @@ export default function Monitoramento() {
 
   const hojeManaus = () => new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
+  // Converte timestamp UTC para hora de Manaus (UTC-4)
+  const horaManaus = (ts) => {
+    if (!ts) return '—';
+    const d = new Date(new Date(ts).getTime() - 4 * 60 * 60 * 1000);
+    return d.toISOString().slice(11, 16);
+  };
+
+  // Idade do GPS em minutos
+  const gpsIdadeMin = (ts) => ts ? Math.round((new Date() - new Date(ts)) / 60000) : null;
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -142,8 +152,8 @@ export default function Monitoramento() {
                   <span><b>Peso:</b> ${parseFloat(stop.weight_kg || 0).toFixed(0)} kg</span>
                   <span><b>Seq:</b> ${stop.sequence || idx + 1}</span>
                 </div>
-                ${stop.ata ? `<div style="font-size:11px;margin-top:4px">🕐 Chegada: ${stop.ata?.slice(11,16) || '—'}</div>` : ''}
-                ${stop.atd ? `<div style="font-size:11px">🚀 Saída: ${stop.atd?.slice(11,16) || '—'}</div>` : ''}
+                ${stop.ata ? `<div style="font-size:11px;margin-top:4px">🕐 Chegada: ${horaManaus(stop.ata)}</div>` : ''}
+                ${stop.atd ? `<div style="font-size:11px">🚀 Saída: ${horaManaus(stop.atd)}</div>` : ''}
                 ${stop.failure_reason ? `<div style="color:#ef4444;font-size:11px;margin-top:4px">❌ ${stop.failure_reason}</div>` : ''}
               </div>
             `);
@@ -312,7 +322,7 @@ export default function Monitoramento() {
                       {ok ? '✅' : recusou ? '❌' : reagend ? '🔄' : '⏳'} {s.recipient_name || '—'}
                     </div>
                     <div style={{ fontSize: 10, color: '#90afd4', display: 'flex', gap: 8 }}>
-                      <span>{s.eta || s.ata?.slice(11,16) || '—'}</span>
+                      <span>{s.eta || horaManaus(s.ata)}</span>
                       {s.weight_kg && <span>{parseFloat(s.weight_kg).toFixed(0)} kg</span>}
                       {s.failure_reason && <span style={{ color: '#ef4444' }}>{s.failure_reason}</span>}
                     </div>
@@ -371,8 +381,8 @@ export default function Monitoramento() {
                 {[
                   { label: 'Sequência', value: stopInfo.stop?.sequence || '—' },
                   { label: 'Peso', value: `${parseFloat(stopInfo.stop?.weight_kg || 0).toFixed(0)} kg` },
-                  { label: 'Chegada', value: stopInfo.stop?.ata?.slice(11,16) || '—' },
-                  { label: 'Saída', value: stopInfo.stop?.atd?.slice(11,16) || '—' },
+                  { label: 'Chegada', value: horaManaus(stopInfo.stop?.ata) },
+                  { label: 'Saída', value: horaManaus(stopInfo.stop?.atd) },
                 ].map(f => (
                   <div key={f.label} style={{ background: '#0a1628', borderRadius: 6, padding: '5px 8px' }}>
                     <div style={{ fontSize: 9, color: '#90afd4' }}>{f.label}</div>
