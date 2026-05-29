@@ -185,7 +185,7 @@ export default function Monitoramento() {
           if (infoWindowRef.current) {
             const done = r.completed_stops || 0;
             const total = r.total_stops || 0;
-            const gpsAge = r.gps_updated_at ? Math.round((new Date() - new Date(r.gps_updated_at)) / 60000) : null;
+            const gpsAge = gpsIdadeMin(r.gps_updated_at);
             infoWindowRef.current.setContent(`
               <div style="color:#001020;font-size:12px;padding:6px;min-width:200px">
                 <div style="font-weight:800;font-size:13px;margin-bottom:4px">🚛 ${r.driver_name || 'Motorista'}</div>
@@ -276,7 +276,7 @@ export default function Monitoramento() {
             const pct   = stops > 0 ? Math.round(done / stops * 100) : 0;
             const sel   = rotaSel === r.id;
             const temGps = r.status === 'in_progress' && r.current_lat && r.current_lng;
-            const gpsAge = r.gps_updated_at ? Math.round((new Date() - new Date(r.gps_updated_at)) / 60000) : null;
+            const gpsAge = gpsIdadeMin(r.gps_updated_at);
             return (
               <div key={r.id} onClick={() => setRotaSel(sel ? null : r.id)}
                 style={{ background: '#0a1628', border: `1px solid ${sel ? '#e8521a' : '#1e3a5c'}`, borderRadius: 10, padding: 12, cursor: 'pointer' }}>
