@@ -16,7 +16,6 @@ export default function Monitoramento() {
   const mapObj       = useRef(null);
   const markersRef   = useRef([]);
   const polylinesRef = useRef([]);
-  const directionsRef = useRef([]);
   const trafegoLayer = useRef(null);
   const intervalRef  = useRef(null);
   const infoWindowRef = useRef(null);
@@ -101,8 +100,6 @@ export default function Monitoramento() {
     markersRef.current = [];
     polylinesRef.current.forEach(p => p.setMap(null));
     polylinesRef.current = [];
-    directionsRef.current.forEach(d => d.setMap(null));
-    directionsRef.current = [];
 
     const bounds = new window.google.maps.LatLngBounds();
     bounds.extend(DEPOSITO);
@@ -121,16 +118,24 @@ export default function Monitoramento() {
         const waypoints = pontos.slice(0, 23).map(p => ({ location: p, stopover: true }));
 
         const directionsService = new window.google.maps.DirectionsService();
-        const directionsRenderer = new window.google.maps.DirectionsRenderer({
-          map: mapObj.current,
-          suppressMarkers: true, // não mostrar os pins padrão A/B/C (usamos os nossos)
-          preserveViewport: true, // não dar zoom automático
-          polylineOptions: {
-            strokeColor: '#64B4FF',
-            strokeOpacity: 0.8,
-            strokeWeight: 4,
-          }
-        });
+
+        const desenharRota = (rotaPath) => {
+          // GLOW verde-limão fosforescente (linha grossa por baixo)
+          const glow = new window.google.maps.Polyline({
+            path: rotaPath, map: mapObj.current,
+            strokeColor: '#aaff00', strokeOpacity: 0.55, strokeWeight: 9,
+            zIndex: 1,
+          });
+          polylinesRef.current.push(glow);
+          // Linha principal azul escura (por cima)
+          const linha = new window.google.maps.Polyline({
+            path: rotaPath, map: mapObj.current,
+            strokeColor: '#0a2472', strokeOpacity: 1, strokeWeight: 4,
+            zIndex: 2,
+            icons: [{ icon: { path: window.google.maps.SymbolPath.FORWARD_OPEN_ARROW, scale: 2, strokeColor: '#aaff00' }, offset: '50%', repeat: '120px' }]
+          });
+          polylinesRef.current.push(linha);
+        };
 
         directionsService.route({
           origin,
@@ -140,20 +145,15 @@ export default function Monitoramento() {
           optimizeWaypoints: false, // mantém a ordem da sequência definida
         }, (result, status) => {
           if (status === 'OK') {
-            directionsRenderer.setDirections(result);
+            // Extrai o path completo (overview) das directions e desenha as 2 linhas
+            const overviewPath = result.routes[0].overview_path;
+            desenharRota(overviewPath);
           } else {
             // Fallback: linha reta se Directions falhar
             console.warn('DirectionsService falhou:', status);
-            const path = [DEPOSITO, ...pontos, DEPOSITO];
-            const poly = new window.google.maps.Polyline({
-              path, map: mapObj.current,
-              strokeColor: '#64B4FF', strokeOpacity: 0.4, strokeWeight: 2,
-              geodesic: true,
-            });
-            polylinesRef.current.push(poly);
+            desenharRota([DEPOSITO, ...pontos, DEPOSITO]);
           }
         });
-        directionsRef.current.push(directionsRenderer);
       }
 
       // ── PINS DOS CLIENTES ──────────────────────────────────────────────────
