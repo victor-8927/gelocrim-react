@@ -193,9 +193,38 @@ function ModalEditar({ rota, onFechar, onSalvo }) {
 }
 
 // ── MODAL VER ROTA ────────────────────────────────────────────────────────────
-function ModalRota({ rota, onFechar }) {
+function ModalRota({ rota, onFechar, onAtualizar }) {
+  const [paradas, setParadas] = useState(rota?.stops || rota?.orders || []);
+  const [fotoZoom, setFotoZoom] = useState(null); // {url, label}
+  const [itensPorStop, setItensPorStop] = useState({});
+  const [aprovando, setAprovando] = useState(null);
+  const [expandido, setExpandido] = useState(null);
+
+  // Hora Manaus (UTC-4)
+  const horaManaus = (ts) => {
+    if (!ts) return '—';
+    const d = new Date(new Date(ts).getTime() - 4 * 60 * 60 * 1000);
+    return d.toISOString().slice(11, 16);
+  };
+
+  // Carregar itens (sacos) por parada
+  useEffect(() => {
+    const ids = paradas.map(p => p.stop_id).filter(Boolean);
+    if (ids.length === 0) return;
+    supabase.from('stop_items')
+      .select('stop_id, item_name, item_type, top_app, order_type, qty_planejada, qty_entregue, qty_devolvida')
+      .in('stop_id', ids)
+      .then(({ data }) => {
+        const mapa = {};
+        (data || []).forEach(it => {
+          if (!mapa[it.stop_id]) mapa[it.stop_id] = [];
+          mapa[it.stop_id].push(it);
+        });
+        setItensPorStop(mapa);
+      });
+  }, [paradas]);
+
   if (!rota) return null;
-  const paradas = rota.stops || rota.orders || [];
   const entregues = paradas.filter(p => p.status === 'delivered' || p.status === 'completed').length;
   const falhas = paradas.filter(p => p.status === 'refused' || p.status === 'failed').length;
   const pendentes = paradas.filter(p => !p.status || p.status === 'pending').length;
@@ -204,33 +233,60 @@ function ModalRota({ rota, onFechar }) {
   const statusLabel = (s) => {
     if (s === 'delivered' || s === 'completed') return { label: '✅ Entregue', cor: '#10b981' };
     if (s === 'refused' || s === 'failed') return { label: '❌ Falhou', cor: '#ef4444' };
+    if (s === 'in_progress') return { label: '🔄 Em rota', cor: '#f97316' };
     return { label: '⏳ Pendente', cor: '#f59e0b' };
   };
 
-  const FotoBtn = ({ label, url }) => (
-    <div style={{ textAlign:'center' }}>
-      {url ? (
-        <a href={url} target="_blank" rel="noreferrer" style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2, color:'#64B4FF', textDecoration:'none', fontSize:10 }}>
-          <span>Ver {label}</span><span style={{ fontSize:16 }}>📄</span>
-        </a>
-      ) : (
-        <span style={{ color:'rgba(144,175,212,.3)', fontSize:10 }}>—</span>
-      )}
-    </div>
+  // Aprovar / rejeitar canhoto
+  const decidirCanhoto = async (stop, decisao, motivo) => {
+    setAprovando(stop.stop_id);
+    try {
+      const update = {
+        canhoto_status: decisao,
+        canhoto_aprovado_por: 'admin',
+        canhoto_aprovado_at: new Date().toISOString(),
+      };
+      if (decisao === 'rejeitado') update.canhoto_motivo_rejeicao = motivo || 'Canhoto ilegível';
+      await supabase.from('stops').update(update).eq('stop_id', stop.stop_id);
+      setParadas(prev => prev.map(p => p.stop_id === stop.stop_id ? { ...p, ...update } : p));
+    } finally {
+      setAprovando(null);
+    }
+  };
+
+  // Mini thumbnail de foto
+  const FotoThumb = ({ label, url, emoji }) => (
+    url ? (
+      <button onClick={() => setFotoZoom({ url, label })}
+        style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2, background:'#0a1628', border:'1px solid #1e3a5c', borderRadius:6, padding:'4px 6px', cursor:'pointer' }}>
+        <img src={url} alt={label} style={{ width:36, height:36, objectFit:'cover', borderRadius:4 }}
+          onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='block'; }} />
+        <span style={{ display:'none', fontSize:16 }}>{emoji}</span>
+        <span style={{ fontSize:8, color:'#64B4FF' }}>{label}</span>
+      </button>
+    ) : (
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2, opacity:0.25, padding:'4px 6px' }}>
+        <span style={{ fontSize:20 }}>{emoji}</span>
+        <span style={{ fontSize:8, color:'#90afd4' }}>{label}</span>
+      </div>
+    )
   );
 
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.8)', zIndex:3000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}
       onClick={e => e.target === e.currentTarget && onFechar()}>
-      <div style={{ background:'#0f2040', border:'1px solid #1e3a5c', borderRadius:16, width:720, maxHeight:'90vh', overflowY:'auto' }}>
-        <div style={{ padding:'14px 20px', borderBottom:'1px solid #1e3a5c', display:'flex', justifyContent:'space-between', alignItems:'center', position:'sticky', top:0, background:'#0f2040', zIndex:1 }}>
+      <div style={{ background:'#0f2040', border:'1px solid #1e3a5c', borderRadius:16, width:920, maxWidth:'95vw', maxHeight:'92vh', overflowY:'auto' }}>
+        {/* Header */}
+        <div style={{ padding:'14px 20px', borderBottom:'1px solid #1e3a5c', display:'flex', justifyContent:'space-between', alignItems:'center', position:'sticky', top:0, background:'#0f2040', zIndex:2 }}>
           <div>
             <div style={{ fontWeight:700, fontSize:15 }}>🗺️ {rota.trip_number || rota.id?.slice(0,16)} — {rota.vehicle_name || '—'}</div>
             <div style={{ fontSize:12, color:'#90afd4', marginTop:2 }}>Motorista: {rota.driver_name || '—'}</div>
           </div>
           <button onClick={onFechar} style={{ background:'none', border:'none', color:'#90afd4', cursor:'pointer' }}><X size={20} /></button>
         </div>
+
         <div style={{ padding:20 }}>
+          {/* KPIs */}
           <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:20 }}>
             {[
               { label:'Entregues', value:entregues, cor:'#10b981' },
@@ -244,41 +300,148 @@ function ModalRota({ rota, onFechar }) {
               </div>
             ))}
           </div>
+
           {paradas.length === 0 ? (
             <div style={{ textAlign:'center', color:'#90afd4', padding:30 }}>Sem paradas registradas</div>
           ) : (
-            <table style={{ width:'100%', borderCollapse:'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom:'1px solid #1e3a5c' }}>
-                  {['#','Cliente','Peso','Status','Hora','NF','Canhoto','Outros'].map(h => (
-                    <th key={h} style={{ padding:'8px 6px', fontSize:10, color:'#90afd4', textAlign:'left', fontWeight:700, textTransform:'uppercase' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {paradas.map((p, i) => {
-                  const st = statusLabel(p.status);
-                  return (
-                    <tr key={i} style={{ borderBottom:'1px solid rgba(30,58,92,.5)' }}>
-                      <td style={{ padding:'10px 6px', fontSize:12, fontWeight:700, color:'#64B4FF' }}>{i+1}</td>
-                      <td style={{ padding:'10px 6px' }}>
-                        <div style={{ fontWeight:600, fontSize:12 }}>{p.recipient_name || '—'}</div>
-                        {p.district && <div style={{ fontSize:10, color:'#90afd4' }}>{p.district}</div>}
-                      </td>
-                      <td style={{ padding:'10px 6px', fontSize:12, color:'#f59e0b' }}>{p.weight_kg ? `${parseFloat(p.weight_kg).toFixed(0)} kg` : '—'}</td>
-                      <td style={{ padding:'10px 6px' }}><span style={{ fontSize:11, fontWeight:700, color:st.cor }}>{st.label}</span></td>
-                      <td style={{ padding:'10px 6px', fontSize:12, color:'#90afd4' }}>{p.arrival_time || '—'}</td>
-                      <td style={{ padding:'6px' }}><FotoBtn label="NF" url={p.nf_url} /></td>
-                      <td style={{ padding:'6px' }}><FotoBtn label="Canhoto" url={p.canhoto_url} /></td>
-                      <td style={{ padding:'6px' }}><FotoBtn label="Outros" url={p.outros_url} /></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+              {paradas.sort((a,b)=>(a.sequence||0)-(b.sequence||0)).map((p, i) => {
+                const st = statusLabel(p.status);
+                const itens = itensPorStop[p.stop_id] || [];
+                const totalSacos = itens.reduce((s,it) => s + (parseFloat(it.qty_entregue ?? it.qty_planejada) || 0), 0);
+                const totalDevol = itens.reduce((s,it) => s + (parseFloat(it.qty_devolvida) || 0), 0);
+                const aberto = expandido === p.stop_id;
+                // tempo de atendimento
+                let tempoAtend = p.tempo_atendimento_min;
+                if (!tempoAtend && p.ata && p.atd) {
+                  tempoAtend = Math.round((new Date(p.atd) - new Date(p.ata)) / 60000);
+                }
+                const temCanhoto = p.canhoto_url || p.photo_receipt;
+                const canhotoStatus = p.canhoto_status || 'pendente';
+                return (
+                  <div key={p.stop_id || i} style={{ background:'#0a1628', border:`1px solid ${aberto ? '#64B4FF' : '#1e3a5c'}`, borderRadius:10, overflow:'hidden' }}>
+                    {/* Linha principal */}
+                    <div onClick={() => setExpandido(aberto ? null : p.stop_id)}
+                      style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px', cursor:'pointer' }}>
+                      <div style={{ width:26, height:26, borderRadius:'50%', background:st.cor, color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700, flexShrink:0 }}>{p.sequence || i+1}</div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontWeight:600, fontSize:13, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{p.recipient_name || '—'}</div>
+                        <div style={{ fontSize:11, color:'#90afd4', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{p.address || '—'}</div>
+                      </div>
+                      <div style={{ textAlign:'center', flexShrink:0 }}>
+                        <div style={{ fontSize:13, fontWeight:700, color:'#f59e0b' }}>{totalSacos > 0 ? `${Math.round(totalSacos)} sacos` : (p.weight_kg ? `${parseFloat(p.weight_kg).toFixed(0)} kg` : '—')}</div>
+                        {totalDevol > 0 && <div style={{ fontSize:10, color:'#ef4444' }}>↩ {Math.round(totalDevol)} devolvidos</div>}
+                      </div>
+                      <div style={{ textAlign:'center', flexShrink:0, minWidth:90 }}>
+                        <div style={{ fontSize:11, fontWeight:700, color:st.cor }}>{st.label}</div>
+                        {temCanhoto && (
+                          <div style={{ fontSize:9, marginTop:2, color: canhotoStatus==='aprovado' ? '#10b981' : canhotoStatus==='rejeitado' ? '#ef4444' : '#f59e0b' }}>
+                            {canhotoStatus==='aprovado' ? '✓ Canhoto OK' : canhotoStatus==='rejeitado' ? '✗ Canhoto rejeitado' : '⏳ Canhoto pendente'}
+                          </div>
+                        )}
+                      </div>
+                      <span style={{ color:'#64B4FF', fontSize:12, flexShrink:0 }}>{aberto ? '▲' : '▼'}</span>
+                    </div>
+
+                    {/* Detalhe expandido */}
+                    {aberto && (
+                      <div style={{ padding:'4px 14px 14px', borderTop:'1px solid rgba(30,58,92,.5)' }}>
+                        {/* Horas e tempo */}
+                        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, margin:'12px 0' }}>
+                          {[
+                            { label:'Chegada', value: horaManaus(p.ata), emoji:'🕐' },
+                            { label:'Saída', value: horaManaus(p.atd), emoji:'🚀' },
+                            { label:'Atendimento', value: tempoAtend ? `${tempoAtend} min` : '—', emoji:'⏱️' },
+                            { label:'Sequência', value: p.sequence || i+1, emoji:'📍' },
+                          ].map(c => (
+                            <div key={c.label} style={{ background:'#06101f', borderRadius:6, padding:'6px 8px' }}>
+                              <div style={{ fontSize:9, color:'#90afd4' }}>{c.emoji} {c.label}</div>
+                              <div style={{ fontSize:13, fontWeight:700 }}>{c.value}</div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Sacos por produto */}
+                        {itens.length > 0 && (
+                          <div style={{ marginBottom:12 }}>
+                            <div style={{ fontSize:10, color:'#90afd4', textTransform:'uppercase', letterSpacing:'1px', marginBottom:6 }}>Sacos entregues</div>
+                            {itens.map((it, idx) => (
+                              <div key={idx} style={{ display:'flex', justifyContent:'space-between', fontSize:12, padding:'3px 0', borderBottom:'1px solid rgba(30,58,92,.3)' }}>
+                                <span>{it.item_name}</span>
+                                <span style={{ display:'flex', gap:10 }}>
+                                  <span style={{ color:'#10b981' }}>{Math.round(parseFloat(it.qty_entregue ?? it.qty_planejada)||0)} entregue</span>
+                                  {parseFloat(it.qty_devolvida)>0 && <span style={{ color:'#ef4444' }}>{Math.round(parseFloat(it.qty_devolvida))} devolvido</span>}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Motivo de falha */}
+                        {p.failure_reason && (
+                          <div style={{ background:'rgba(239,68,68,.1)', border:'1px solid rgba(239,68,68,.3)', borderRadius:6, padding:'6px 10px', marginBottom:12, fontSize:12, color:'#ef4444' }}>
+                            ❌ {p.failure_reason}
+                          </div>
+                        )}
+                        {p.notes && (
+                          <div style={{ fontSize:11, color:'#90afd4', marginBottom:12 }}>📝 {p.notes}</div>
+                        )}
+
+                        {/* Fotos */}
+                        <div style={{ fontSize:10, color:'#90afd4', textTransform:'uppercase', letterSpacing:'1px', marginBottom:6 }}>Comprovantes</div>
+                        <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
+                          <FotoThumb label="NF" url={p.nf_url || p.photo_nf} emoji="📄" />
+                          <FotoThumb label="Canhoto" url={p.canhoto_url || p.photo_receipt} emoji="🧾" />
+                          <FotoThumb label="Assinatura" url={p.assinatura_url} emoji="✍️" />
+                          <FotoThumb label="Boleto" url={p.boleto_url || p.photo_boleto} emoji="💵" />
+                          <FotoThumb label="Comodato" url={p.photo_loan} emoji="🤝" />
+                          <FotoThumb label="Ocorrência" url={p.ocorrencia_url} emoji="⚠️" />
+                          <FotoThumb label="Outros" url={p.outros_url || p.photo_other} emoji="📷" />
+                        </div>
+
+                        {/* Aprovação de canhoto */}
+                        {temCanhoto && canhotoStatus === 'pendente' && (
+                          <div style={{ display:'flex', gap:8, alignItems:'center', background:'rgba(245,158,11,.08)', border:'1px solid rgba(245,158,11,.3)', borderRadius:8, padding:'8px 12px' }}>
+                            <span style={{ fontSize:12, color:'#f59e0b', flex:1 }}>Canhoto aguardando aprovação do supervisor</span>
+                            <button onClick={() => decidirCanhoto(p, 'aprovado')} disabled={aprovando===p.stop_id}
+                              style={{ background:'rgba(16,185,129,.2)', border:'1px solid #10b981', color:'#10b981', borderRadius:6, padding:'5px 12px', cursor:'pointer', fontSize:12, fontWeight:700 }}>
+                              ✓ Aprovar
+                            </button>
+                            <button onClick={() => { const m = window.prompt('Motivo da rejeição:'); if (m !== null) decidirCanhoto(p, 'rejeitado', m); }} disabled={aprovando===p.stop_id}
+                              style={{ background:'rgba(239,68,68,.2)', border:'1px solid #ef4444', color:'#ef4444', borderRadius:6, padding:'5px 12px', cursor:'pointer', fontSize:12, fontWeight:700 }}>
+                              ✗ Rejeitar
+                            </button>
+                          </div>
+                        )}
+                        {canhotoStatus === 'aprovado' && (
+                          <div style={{ fontSize:11, color:'#10b981', background:'rgba(16,185,129,.08)', borderRadius:6, padding:'6px 10px' }}>
+                            ✓ Canhoto aprovado{p.canhoto_aprovado_por ? ` por ${p.canhoto_aprovado_por}` : ''} {p.canhoto_aprovado_at ? `· ${horaManaus(p.canhoto_aprovado_at)}` : ''}
+                          </div>
+                        )}
+                        {canhotoStatus === 'rejeitado' && (
+                          <div style={{ fontSize:11, color:'#ef4444', background:'rgba(239,68,68,.08)', borderRadius:6, padding:'6px 10px' }}>
+                            ✗ Canhoto rejeitado{p.canhoto_motivo_rejeicao ? `: ${p.canhoto_motivo_rejeicao}` : ''}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
+
+      {/* Zoom de foto */}
+      {fotoZoom && (
+        <div onClick={() => setFotoZoom(null)}
+          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.92)', zIndex:4000, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12, padding:20 }}>
+          <div style={{ fontSize:14, fontWeight:700, color:'#fff' }}>{fotoZoom.label}</div>
+          <img src={fotoZoom.url} alt={fotoZoom.label} style={{ maxWidth:'90vw', maxHeight:'80vh', objectFit:'contain', borderRadius:8 }} />
+          <button onClick={() => setFotoZoom(null)} style={{ background:'rgba(255,255,255,.1)', border:'1px solid rgba(255,255,255,.3)', color:'#fff', borderRadius:8, padding:'8px 20px', cursor:'pointer', fontSize:13 }}>Fechar</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -572,7 +735,7 @@ export default function Rotas() {
         </div>
       </div>
 
-      {rotaSel    && <ModalRota    rota={rotaSel}    onFechar={() => setRotaSel(null)} />}
+      {rotaSel    && <ModalRota    rota={rotaSel}    onFechar={() => setRotaSel(null)} onAtualizar={load} />}
 
       {/* Modal Resumo de Carga */}
       {rotaResumo && (
