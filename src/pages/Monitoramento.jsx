@@ -16,6 +16,7 @@ export default function Monitoramento() {
   const mapObj       = useRef(null);
   const markersRef   = useRef([]);
   const polylinesRef = useRef([]);
+  const directionsRef = useRef([]);
   const trafegoLayer = useRef(null);
   const intervalRef  = useRef(null);
   const infoWindowRef = useRef(null);
@@ -100,6 +101,8 @@ export default function Monitoramento() {
     markersRef.current = [];
     polylinesRef.current.forEach(p => p.setMap(null));
     polylinesRef.current = [];
+    directionsRef.current.forEach(d => d.setMap(null));
+    directionsRef.current = [];
 
     const bounds = new window.google.maps.LatLngBounds();
     bounds.extend(DEPOSITO);
@@ -108,16 +111,49 @@ export default function Monitoramento() {
     rotas.forEach(r => {
       const stops = (r.stops || []).sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
 
-      // ── ROTA PLANEJADA — linha azul conectando os stops em sequência ──────
+      // ── ROTA PLANEJADA — trajeto real pelas ruas via DirectionsService ──────
       const stopsComCoord = stops.filter(s => s.lat && s.lng);
-      if (stopsComCoord.length > 1) {
-        const path = [DEPOSITO, ...stopsComCoord.map(s => ({ lat: parseFloat(s.lat), lng: parseFloat(s.lng) })), DEPOSITO];
-        const poly = new window.google.maps.Polyline({
-          path, map: mapObj.current,
-          strokeColor: '#64B4FF', strokeOpacity: 0.5, strokeWeight: 2,
-          geodesic: true, icons: [{ icon: { path: window.google.maps.SymbolPath.FORWARD_OPEN_ARROW }, offset: '50%' }]
+      if (stopsComCoord.length >= 1) {
+        const origin = DEPOSITO;
+        const destination = DEPOSITO; // volta ao depósito
+        const pontos = stopsComCoord.map(s => ({ lat: parseFloat(s.lat), lng: parseFloat(s.lng) }));
+        // DirectionsService aceita até 25 waypoints (23 intermediários + origin + destination)
+        const waypoints = pontos.slice(0, 23).map(p => ({ location: p, stopover: true }));
+
+        const directionsService = new window.google.maps.DirectionsService();
+        const directionsRenderer = new window.google.maps.DirectionsRenderer({
+          map: mapObj.current,
+          suppressMarkers: true, // não mostrar os pins padrão A/B/C (usamos os nossos)
+          preserveViewport: true, // não dar zoom automático
+          polylineOptions: {
+            strokeColor: '#64B4FF',
+            strokeOpacity: 0.8,
+            strokeWeight: 4,
+          }
         });
-        polylinesRef.current.push(poly);
+
+        directionsService.route({
+          origin,
+          destination,
+          waypoints,
+          travelMode: window.google.maps.TravelMode.DRIVING,
+          optimizeWaypoints: false, // mantém a ordem da sequência definida
+        }, (result, status) => {
+          if (status === 'OK') {
+            directionsRenderer.setDirections(result);
+          } else {
+            // Fallback: linha reta se Directions falhar
+            console.warn('DirectionsService falhou:', status);
+            const path = [DEPOSITO, ...pontos, DEPOSITO];
+            const poly = new window.google.maps.Polyline({
+              path, map: mapObj.current,
+              strokeColor: '#64B4FF', strokeOpacity: 0.4, strokeWeight: 2,
+              geodesic: true,
+            });
+            polylinesRef.current.push(poly);
+          }
+        });
+        directionsRef.current.push(directionsRenderer);
       }
 
       // ── PINS DOS CLIENTES ──────────────────────────────────────────────────
