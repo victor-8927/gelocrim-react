@@ -12,10 +12,12 @@ export default function Monitoramento() {
   const [trafego, setTrafego]     = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [stopInfo, setStopInfo]   = useState(null); // ficha do cliente ao clicar no pin
+  const [trajetos, setTrajetos]   = useState({}); // trajeto real por route_id (route_tracking)
   const mapRef       = useRef(null);
   const mapObj       = useRef(null);
   const markersRef   = useRef([]);
   const polylinesRef = useRef([]);
+  const trajetoRef   = useRef([]);
   const trafegoLayer = useRef(null);
   const intervalRef  = useRef(null);
   const infoWindowRef = useRef(null);
@@ -41,7 +43,28 @@ export default function Monitoramento() {
       ]);
       const hoje = Array.isArray(rotasData) ? rotasData : [];
       const cross = (ativas.data || []).filter(r => !hoje.find(h => h.id === r.id));
-      setRotas([...hoje, ...cross]);
+      const todasRotas = [...hoje, ...cross];
+      setRotas(todasRotas);
+
+      // Buscar trajeto real (route_tracking) das rotas em andamento
+      const idsAtivas = todasRotas.filter(r => r.status === 'in_progress').map(r => r.id);
+      if (idsAtivas.length > 0) {
+        const { data: tracking } = await supabase
+          .from('route_tracking')
+          .select('route_id, lat, lng, speed, heading, ts, recorded_at')
+          .in('route_id', idsAtivas)
+          .order('recorded_at', { ascending: true })
+          .catch(() => ({ data: [] }));
+        // Agrupar por route_id
+        const porRota = {};
+        (tracking || []).forEach(t => {
+          if (!porRota[t.route_id]) porRota[t.route_id] = [];
+          if (t.lat && t.lng) porRota[t.route_id].push({ lat: parseFloat(t.lat), lng: parseFloat(t.lng), speed: t.speed, heading: t.heading });
+        });
+        setTrajetos(porRota);
+      } else {
+        setTrajetos({});
+      }
     } catch (e) { console.error('Monitoramento load:', e); }
     finally { setLoading(false); }
   }, []); // eslint-disable-line
@@ -100,6 +123,8 @@ export default function Monitoramento() {
     markersRef.current = [];
     polylinesRef.current.forEach(p => p.setMap(null));
     polylinesRef.current = [];
+    trajetoRef.current.forEach(p => p.setMap(null));
+    trajetoRef.current = [];
 
     const bounds = new window.google.maps.LatLngBounds();
     bounds.extend(DEPOSITO);
@@ -200,6 +225,25 @@ export default function Monitoramento() {
         markersRef.current.push(mk);
       });
 
+      // ── TRAJETO REAL — linha laranja conectando pontos GPS gravados ───────
+      const trajeto = trajetos[r.id] || [];
+      if (trajeto.length > 1) {
+        const trajetoPath = trajeto.map(p => ({ lat: p.lat, lng: p.lng }));
+        // Sombra escura por baixo para destacar do mapa
+        const sombra = new window.google.maps.Polyline({
+          path: trajetoPath, map: mapObj.current,
+          strokeColor: '#000000', strokeOpacity: 0.25, strokeWeight: 7, zIndex: 3,
+        });
+        trajetoRef.current.push(sombra);
+        // Linha laranja (cor GELOCRIM) — trajeto realmente percorrido
+        const real = new window.google.maps.Polyline({
+          path: trajetoPath, map: mapObj.current,
+          strokeColor: '#e8521a', strokeOpacity: 1, strokeWeight: 4, zIndex: 4,
+          icons: [{ icon: { path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 2.5, fillColor: '#e8521a', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 1 }, offset: '60%', repeat: '140px' }]
+        });
+        trajetoRef.current.push(real);
+      }
+
       // ── PIN DO CAMINHÃO — posição atual GPS ───────────────────────────────
       if (r.status === 'in_progress' && r.current_lat && r.current_lng) {
         const lat = parseFloat(r.current_lat);
@@ -242,7 +286,7 @@ export default function Monitoramento() {
     if (temPontos) {
       mapObj.current.fitBounds(bounds);
     }
-  }, [rotas]);
+  }, [rotas, trajetos]);
 
   // KPIs
   const emRota       = rotas.filter(r => r.status === 'in_progress').length;
@@ -389,8 +433,9 @@ export default function Monitoramento() {
             🚦 Tráfego
           </button>
           {/* Legenda */}
-          <div style={{ display: 'flex', gap: 10, marginLeft: 'auto', alignItems: 'center' }}>
-            <span style={{ fontSize: 10, color: '#64B4FF' }}>── Rota planejada</span>
+          <div style={{ display: 'flex', gap: 10, marginLeft: 'auto', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 10, color: '#0a2472', fontWeight: 700 }}>━ Planejada</span>
+            <span style={{ fontSize: 10, color: '#e8521a', fontWeight: 700 }}>━ Trajeto real</span>
             <span style={{ fontSize: 10, color: '#10b981' }}>● Entregue</span>
             <span style={{ fontSize: 10, color: '#ef4444' }}>● Falha</span>
             <span style={{ fontSize: 10, color: '#64B4FF' }}>● Pendente</span>
