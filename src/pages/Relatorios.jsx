@@ -19,15 +19,31 @@ const RELATORIOS = [
 
 const CORES = ['#e8521a', '#64B4FF', '#10b981', '#f59e0b', '#a78bfa', '#f97316', '#ef4444'];
 
+// Helper: join de nomes de motorista/veículo para um conjunto de rotas
+async function hidratarRotas(rotas) {
+  const vIds = [...new Set(rotas.map(r => r.vehicle_id).filter(Boolean))];
+  const dIds = [...new Set(rotas.map(r => r.driver_id).filter(Boolean))];
+  const [veics, drivs] = await Promise.all([
+    vIds.length ? supabase.from('vehicles').select('id,vda,plate').in('id', vIds) : { data: [] },
+    dIds.length ? supabase.from('drivers').select('id,name').in('id', dIds) : { data: [] },
+  ]);
+  const veicMap = Object.fromEntries((veics.data || []).map(v => [v.id, v]));
+  const drivMap = Object.fromEntries((drivs.data || []).map(d => [d.id, d]));
+  return rotas.map(r => ({
+    ...r,
+    vehicle_name: veicMap[r.vehicle_id] ? `${veicMap[r.vehicle_id].vda} — ${veicMap[r.vehicle_id].plate}` : '—',
+    driver_name: drivMap[r.driver_id]?.name || '—',
+  }));
+}
+
 export default function Relatorios() {
   const [tipo, setTipo] = useState('pedidos');
   const [loading, setLoading] = useState(false);
-  const [dados, setDados] = useState({ rows: [], kpis: [], chart: [] });
+  const [dados, setDados] = useState({ cols: [], rows: [], kpis: [], chart: [] });
   const [dataIni, setDataIni] = useState('');
   const [dataFim, setDataFim] = useState('');
 
   const hojeManaus = () => new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const horaManaus = (ts) => { if (!ts) return '—'; return new Date(new Date(ts).getTime() - 4*60*60*1000).toISOString().slice(11,16); };
 
   useEffect(() => {
     const fim = hojeManaus();
@@ -47,22 +63,21 @@ export default function Relatorios() {
       if (tipo === 'pedidos') {
         const { data } = await supabase
           .from('orders')
-          .select('id, order_number, client_name, status, total_weight, created_at, order_date')
+          .select('id, external_id, invoice_number, recipient_name, status, weight_kg, total_value, order_type, created_at, delivery_date')
           .gte('created_at', iniQuery).lte('created_at', fimQuery)
           .order('created_at', { ascending: false });
         const rows = (data || []).map(o => ({
-          c1: o.order_number || o.id?.slice(0,8),
-          c2: o.client_name || '—',
+          c1: o.external_id || o.invoice_number || o.id?.slice(0,8),
+          c2: o.recipient_name || '—',
           c3: o.status || 'pendente',
-          c4: o.total_weight ? `${parseFloat(o.total_weight).toFixed(0)} kg` : '—',
-          c5: (o.order_date || o.created_at || '').slice(0,10),
+          c4: o.weight_kg ? `${parseFloat(o.weight_kg).toFixed(0)} kg` : '—',
+          c5: (o.delivery_date || o.created_at || '').slice(0,10),
         }));
         const total = rows.length;
         const entregues = (data||[]).filter(o => o.status === 'delivered' || o.status === 'completed').length;
         const pendentes = (data||[]).filter(o => !o.status || o.status === 'pending').length;
-        // agrupar por dia
         const porDia = {};
-        (data||[]).forEach(o => { const d=(o.order_date||o.created_at||'').slice(0,10); if(d) porDia[d]=(porDia[d]||0)+1; });
+        (data||[]).forEach(o => { const d=(o.delivery_date||o.created_at||'').slice(0,10); if(d) porDia[d]=(porDia[d]||0)+1; });
         setDados({
           cols: ['Pedido','Cliente','Status','Peso','Data'],
           rows,
@@ -77,17 +92,21 @@ export default function Relatorios() {
 
       // ─── ENTREGAS POR MOTORISTA ────────────────────────────────
       else if (tipo === 'entregas') {
-        const { data: rotas } = await supabase
+        const { data: rotasRaw } = await supabase
           .from('routes')
-          .select('id, driver_name, total_stops, completed_stops, failed_stops, route_date, status')
+          .select('id, driver_id, total_stops, delivered_stops, route_date, status, stops(status)')
           .gte('route_date', dataIni).lte('route_date', dataFim);
+        const rotas = await hidratarRotas(rotasRaw || []);
         const porMotorista = {};
-        (rotas||[]).forEach(r => {
+        rotas.forEach(r => {
           const m = r.driver_name || '—';
           if (!porMotorista[m]) porMotorista[m] = { entregas: 0, falhas: 0, rotas: 0, paradas: 0 };
-          porMotorista[m].entregas += r.completed_stops || 0;
-          porMotorista[m].falhas += r.failed_stops || 0;
-          porMotorista[m].paradas += r.total_stops || 0;
+          const stops = r.stops || [];
+          const entregues = stops.filter(s => s.status === 'delivered').length || r.delivered_stops || 0;
+          const falhas = stops.filter(s => s.status === 'failed' || s.status === 'refused').length;
+          porMotorista[m].entregas += entregues;
+          porMotorista[m].falhas += falhas;
+          porMotorista[m].paradas += r.total_stops || stops.length || 0;
           porMotorista[m].rotas += 1;
         });
         const rows = Object.entries(porMotorista).map(([m,v]) => ({
@@ -114,13 +133,11 @@ export default function Relatorios() {
         if (rotaIds.length) {
           const { data: stops } = await supabase.from('stops').select('stop_id').in('route_id', rotaIds);
           const stopIds = (stops||[]).map(s=>s.stop_id);
-          if (stopIds.length) {
-            // buscar em lotes
-            for (let i=0;i<stopIds.length;i+=200) {
-              const lote = stopIds.slice(i,i+200);
-              const { data } = await supabase.from('stop_items').select('item_name, item_type, qty_planejada, qty_entregue, qty_devolvida').in('stop_id', lote);
-              items = items.concat(data||[]);
-            }
+          for (let i=0;i<stopIds.length;i+=200) {
+            const lote = stopIds.slice(i,i+200);
+            if (!lote.length) break;
+            const { data } = await supabase.from('stop_items').select('item_name, item_type, qty_planejada, qty_entregue, qty_devolvida').in('stop_id', lote);
+            items = items.concat(data||[]);
           }
         }
         const porProduto = {};
@@ -149,15 +166,17 @@ export default function Relatorios() {
 
       // ─── KM REALIZADO ──────────────────────────────────────────
       else if (tipo === 'km') {
-        const { data: rotas } = await supabase
+        const { data: rotasRaw } = await supabase
           .from('routes')
-          .select('trip_number, driver_name, vehicle_name, km_start, km_end, route_date, status')
+          .select('id, trip_number, driver_id, vehicle_id, km_start, km_end, total_distance_km, route_date, status')
           .gte('route_date', dataIni).lte('route_date', dataFim);
-        const rows = (rotas||[]).map(r => {
-          const km = (r.km_end && r.km_start) ? (parseFloat(r.km_end)-parseFloat(r.km_start)) : 0;
+        const rotas = await hidratarRotas(rotasRaw || []);
+        const rows = rotas.map(r => {
+          let km = (r.km_end && r.km_start) ? (parseFloat(r.km_end)-parseFloat(r.km_start)) : 0;
+          if (km <= 0 && r.total_distance_km) km = parseFloat(r.total_distance_km);
           return { c1: r.trip_number||'—', c2: r.driver_name||'—', c3: r.vehicle_name||'—', c4: km>0?`${km.toFixed(0)} km`:'—', c5: (r.route_date||'').slice(0,10) };
         });
-        const totalKm = (rotas||[]).reduce((s,r)=>{ const km=(r.km_end&&r.km_start)?(parseFloat(r.km_end)-parseFloat(r.km_start)):0; return s+(km>0?km:0); },0);
+        const totalKm = rows.reduce((s,r)=>{ const v=parseFloat(r.c4); return s+(isNaN(v)?0:v); },0);
         setDados({
           cols: ['Rota','Motorista','Veículo','KM Rodado','Data'],
           rows,
@@ -172,18 +191,18 @@ export default function Relatorios() {
 
       // ─── CUSTOS OPERACIONAIS ───────────────────────────────────
       else if (tipo === 'custos') {
-        const { data: rotas } = await supabase
+        const { data: rotasRaw } = await supabase
           .from('routes')
-          .select('trip_number, driver_name, custo_diesel, custo_equipe, custo_manutencao, route_date')
+          .select('id, trip_number, custo_diesel, custo_equipe, custo_manutencao, custo_total, route_date')
           .gte('route_date', dataIni).lte('route_date', dataFim);
-        const rows = (rotas||[]).map(r => {
+        const rows = (rotasRaw||[]).map(r => {
           const diesel=parseFloat(r.custo_diesel)||0, equipe=parseFloat(r.custo_equipe)||0, manut=parseFloat(r.custo_manutencao)||0;
-          const total=diesel+equipe+manut;
+          const total=(parseFloat(r.custo_total)||0) || (diesel+equipe+manut);
           return { c1:r.trip_number||'—', c2:`R$ ${diesel.toFixed(0)}`, c3:`R$ ${equipe.toFixed(0)}`, c4:`R$ ${manut.toFixed(0)}`, c5:`R$ ${total.toFixed(0)}` };
         });
-        const totDiesel=(rotas||[]).reduce((s,r)=>s+(parseFloat(r.custo_diesel)||0),0);
-        const totEquipe=(rotas||[]).reduce((s,r)=>s+(parseFloat(r.custo_equipe)||0),0);
-        const totManut=(rotas||[]).reduce((s,r)=>s+(parseFloat(r.custo_manutencao)||0),0);
+        const totDiesel=(rotasRaw||[]).reduce((s,r)=>s+(parseFloat(r.custo_diesel)||0),0);
+        const totEquipe=(rotasRaw||[]).reduce((s,r)=>s+(parseFloat(r.custo_equipe)||0),0);
+        const totManut=(rotasRaw||[]).reduce((s,r)=>s+(parseFloat(r.custo_manutencao)||0),0);
         setDados({
           cols: ['Rota','Diesel','Equipe','Manutenção','Total'],
           rows,
@@ -202,9 +221,9 @@ export default function Relatorios() {
 
       // ─── TROCAS / RETORNOS / SALDOS / CONFERENCIA (via stop_items) ──
       else if (tipo === 'trocas' || tipo === 'retornos' || tipo === 'saldos' || tipo === 'conferencia') {
-        const { data: rotas } = await supabase.from('routes').select('id, trip_number, driver_name').gte('route_date', dataIni).lte('route_date', dataFim);
-        const rotaMap = {}; (rotas||[]).forEach(r => rotaMap[r.id] = r);
-        const rotaIds = (rotas||[]).map(r=>r.id);
+        const { data: rotasRaw } = await supabase.from('routes').select('id, trip_number').gte('route_date', dataIni).lte('route_date', dataFim);
+        const rotaMap = {}; (rotasRaw||[]).forEach(r => rotaMap[r.id] = r);
+        const rotaIds = (rotasRaw||[]).map(r=>r.id);
         let stopsAll = [];
         if (rotaIds.length) {
           const { data: stops } = await supabase.from('stops').select('stop_id, recipient_name, route_id, status').in('route_id', rotaIds);
@@ -232,30 +251,28 @@ export default function Relatorios() {
         }
         else if (tipo === 'retornos') {
           const ret = items.filter(it => parseFloat(it.qty_devolvida)>0);
-          const rows = ret.map(it => { const s=stopMap[it.stop_id]||{}; const r=rotaMap[s.route_id]||{}; return {
+          const rows = ret.map(it => { const s=stopMap[it.stop_id]||{}; return {
             c1: s.recipient_name||'—', c2: it.item_name||'—', c3: Math.round(parseFloat(it.qty_devolvida)||0), c4: it.motivo_devolucao||'—', c5: it.destino_retorno||'—' }; });
           setDados({ cols:['Cliente','Produto','Devolvido','Motivo','Destino'], rows,
             kpis:[{label:'Retornos',value:rows.length,cor:'#ef4444'},{label:'Sacos Devolvidos',value:rows.reduce((s,r)=>s+r.c3,0),cor:'#f59e0b'},{label:'Clientes',value:new Set(rows.map(r=>r.c1)).size,cor:'#64B4FF'}],
             chart: [] });
         }
         else if (tipo === 'saldos') {
-          // Saldo = planejado não entregue (qty_planejada - qty_entregue > 0) em vendas
-          const saldos = items.filter(it => { const p=parseFloat(it.qty_planejada)||0, e=parseFloat(it.qty_entregue)||0; return (it.top_app==='1000'||it.order_type==='1000') && p>e && e>=0 && (p-e)>0; });
-          const rows = saldos.map(it => { const s=stopMap[it.stop_id]||{}; const r=rotaMap[s.route_id]||{}; const saldo=(parseFloat(it.qty_planejada)||0)-(parseFloat(it.qty_entregue)||0); return {
+          const saldos = items.filter(it => { const p=parseFloat(it.qty_planejada)||0, e=parseFloat(it.qty_entregue)||0; return (it.top_app==='1000'||it.order_type==='1000') && (p-e)>0; });
+          const rows = saldos.map(it => { const s=stopMap[it.stop_id]||{}; const saldo=(parseFloat(it.qty_planejada)||0)-(parseFloat(it.qty_entregue)||0); return {
             c1: s.recipient_name||'—', c2: it.item_name||'—', c3: Math.round(parseFloat(it.qty_planejada)||0), c4: Math.round(parseFloat(it.qty_entregue)||0), c5: Math.round(saldo) }; });
           setDados({ cols:['Cliente','Produto','Pedido','Entregue','Saldo'], rows,
             kpis:[{label:'Saldos em Aberto',value:rows.length,cor:'#f59e0b'},{label:'Sacos em Saldo',value:rows.reduce((s,r)=>s+r.c5,0),cor:'#ef4444'},{label:'Clientes',value:new Set(rows.map(r=>r.c1)).size,cor:'#64B4FF'}],
             chart: [] });
         }
         else if (tipo === 'conferencia') {
-          // Conferência: comparar planejado vs (entregue + devolvido) — divergências
           const rows = []; let okCount=0, divCount=0;
           items.forEach(it => {
             const p=parseFloat(it.qty_planejada)||0, e=parseFloat(it.qty_entregue)||0, d=parseFloat(it.qty_devolvida)||0;
-            const fechou = (e+d) === p;
             if (p>0) {
+              const fechou = (e+d) === p;
               if (fechou) okCount++; else divCount++;
-              if (!fechou) { const s=stopMap[it.stop_id]||{}; const r=rotaMap[s.route_id]||{}; rows.push({
+              if (!fechou) { const s=stopMap[it.stop_id]||{}; rows.push({
                 c1: s.recipient_name||'—', c2: it.item_name||'—', c3: Math.round(p), c4: Math.round(e+d), c5: Math.round(p-(e+d)) }); }
             }
           });
@@ -267,9 +284,10 @@ export default function Relatorios() {
 
       // ─── GESTÃO DE CANHOTOS ────────────────────────────────────
       else if (tipo === 'canhotos') {
-        const { data: rotas } = await supabase.from('routes').select('id, trip_number, driver_name').gte('route_date', dataIni).lte('route_date', dataFim);
-        const rotaMap = {}; (rotas||[]).forEach(r => rotaMap[r.id] = r);
-        const rotaIds = (rotas||[]).map(r=>r.id);
+        const { data: rotasRaw } = await supabase.from('routes').select('id, trip_number, driver_id').gte('route_date', dataIni).lte('route_date', dataFim);
+        const rotas = await hidratarRotas(rotasRaw || []);
+        const rotaMap = {}; rotas.forEach(r => rotaMap[r.id] = r);
+        const rotaIds = rotas.map(r=>r.id);
         let stops = [];
         if (rotaIds.length) {
           const { data } = await supabase.from('stops')
