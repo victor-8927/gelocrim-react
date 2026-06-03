@@ -39,7 +39,7 @@ export default function Monitoramento() {
     try {
       const [rotasData, ativas] = await Promise.all([
         getRoutes({ date: hojeManaus() }),
-        supabase.from('routes').select('*, stops(stop_id,status,recipient_name,address,sequence,lat,lng,weight_kg,ata,atd,eta,nf_url,canhoto_url,failure_reason)').eq('status', 'in_progress'),
+        supabase.from('routes').select('*, stops(stop_id,status,recipient_name,address,sequence,lat,lng,weight_kg,ata,atd,eta,nf_url,canhoto_url,failure_reason)').eq('status', 'in_progress').gte('route_date', new Date(Date.now() - 2*24*60*60*1000 - 4*60*60*1000).toISOString().slice(0,10)),
       ]);
       const hoje = Array.isArray(rotasData) ? rotasData : [];
       const cross = (ativas.data || []).filter(r => !hoje.find(h => h.id === r.id));
