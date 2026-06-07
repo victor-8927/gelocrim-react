@@ -81,7 +81,7 @@ function calcEtas(ordem, horaInicio, duracoesDirecoes) {
 export default function ConferenciaMaster({ clientes, veiculo, motorista, ajudantes = [], onFechar, onGravar }) {
   const [ordem, setOrdem] = useState([]);
   const [horaInicio, setHoraInicio] = useState('08:00');
-  const [dataSaida, setDataSaida] = useState(new Date().toISOString().slice(0, 10));
+  const [dataSaida, setDataSaida] = useState(new Date(Date.now() - 4*60*60*1000).toISOString().slice(0, 10));
   const [escopo, setEscopo] = useState('padrao');
   const [modoOtim, setModoOtim] = useState('otimizado');
   const [confirmado, setConfirmado] = useState(false);
