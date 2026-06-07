@@ -541,7 +541,26 @@ export default function Rotas() {
     if (!window.confirm(`Liberar rota ${rota.trip_number}?`)) return;
     setLiberando(rota.id);
     try {
+      // 1. Marcar rota como planned
       await supabase.from('routes').update({ status: 'planned', updated_at: new Date().toISOString() }).eq('id', rota.id);
+
+      // 2. Buscar codparcs dos stops desta rota
+      const { data: stopsData } = await supabase
+        .from('stops')
+        .select('codparc')
+        .eq('route_id', rota.id);
+
+      const codparcs = (stopsData || []).map(s => s.codparc).filter(Boolean);
+
+      // 3. Marcar orders desses clientes como 'routed'
+      if (codparcs.length > 0) {
+        await supabase
+          .from('orders')
+          .update({ status: 'routed', updated_at: new Date().toISOString() })
+          .in('codparc', codparcs)
+          .eq('status', 'pending');
+      }
+
       load();
     } catch(e) { alert('Erro: ' + e.message); }
     finally { setLiberando(null); }
