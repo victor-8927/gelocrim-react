@@ -51,7 +51,7 @@ export default function Roteirizacao() {
   const mapRef = useRef(null);
   const mapObj = useRef(null);
   const markers = useRef([]);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date(Date.now() - 4*60*60*1000).toISOString().slice(0, 10);
   const [data, setData] = useState(today);
 
   const load = useCallback(async () => {
