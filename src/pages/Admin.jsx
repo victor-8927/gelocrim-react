@@ -84,7 +84,7 @@ export default function Admin() {
     try {
       await supabase.from('routes').upsert({
         id: 'config-reset', trip_number: 'RESET-' + new Date().toISOString(),
-        status: 'config', route_date: new Date().toISOString().slice(0, 10),
+        status: 'config', route_date: new Date(Date.now() - 4*60*60*1000).toISOString().slice(0, 10),
       });
       setMsg('✅ Reset registrado para próxima operação.');
     } finally { setLoading(false); }
