@@ -88,7 +88,7 @@ export default function Ocorrencias() {
   const pendentes = ocorrencias.filter(o => o.status === 'Pendente' || o.status === 'pending').length;
   const emTrat = ocorrencias.filter(o => o.status === 'Em Tratamento' || o.status === 'in_progress').length;
   const criticas = ocorrencias.filter(o => (o.severity || o.gravidade) === 'critica' || (o.severity || o.gravidade) === 'critical').length;
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = new Date(Date.now() - 4*60*60*1000).toISOString().slice(0, 10);
   const resolvidasHoje = ocorrencias.filter(o => (o.status === 'Resolvida' || o.status === 'resolved') && String(o.created_at || '').startsWith(hoje)).length;
 
   const getGrav = (val) => GRAVIDADES.find(g => g.val === val) || GRAVIDADES[1];
