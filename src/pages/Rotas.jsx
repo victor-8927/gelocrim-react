@@ -450,7 +450,7 @@ function ModalRota({ rota, onFechar, onAtualizar }) {
 export default function Rotas() {
   const [rotas, setRotas] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState(new Date().toISOString().slice(0, 10));
+  const [data, setData] = useState(new Date(Date.now() - 4*60*60*1000).toISOString().slice(0, 10));
   const [filtroStatus, setFiltroStatus] = useState('');
   const [rotaSel, setRotaSel] = useState(null);
   const [rotaEditar, setRotaEditar] = useState(null);
