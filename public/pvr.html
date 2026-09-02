@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Gelocrim — PVR</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+:root{
+  --bg:#05202F;--s0:rgba(255,255,255,.04);--s1:rgba(255,255,255,.08);--b:rgba(255,255,255,.10);
+  --cy:#00C2FF;--gr:#4DFFC3;--am:#FFD166;--rd:#FF8090;
+  --grd:rgba(77,255,195,.10);--amd:rgba(255,209,102,.10);--rdd:rgba(255,128,144,.10);--cyd:rgba(0,194,255,.10);
+  --tx:#EEF6FF;--tx2:#B8D4E8;--tx3:#7AA3BE;
+  --ff:'Inter',sans-serif;--mo:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg);font-family:var(--ff);color:var(--tx);min-height:100vh}
+.app{padding:14px;max-width:900px;margin:0 auto}
+
+.hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:11px;border-bottom:1px solid var(--b)}
+.logo{width:40px;height:40px;background:linear-gradient(135deg,#1565A8,#00C2FF);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:19px;margin-right:9px;flex-shrink:0}
+.ht{font-size:13px;font-weight:700}.hs{font-size:9px;color:var(--tx2);margin-top:2px}
+.live{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:700;color:var(--gr);background:var(--grd);border:1px solid rgba(77,255,195,.25);padding:2px 8px;border-radius:20px}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--gr);animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.clk{font-size:9px;color:var(--tx3);font-family:var(--mo);margin-top:2px;text-align:right}
+
+.imp{display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap}
+.imp-btn{flex:1;min-width:130px;display:flex;align-items:center;gap:6px;padding:8px 11px;border-radius:9px;border:1.5px dashed rgba(0,194,255,.35);background:var(--s0);color:var(--tx2);font-size:10px;font-weight:600;cursor:pointer;transition:all .2s}
+.imp-btn:hover{border-color:var(--cy);background:var(--cyd)}
+.imp-btn.ok{border-color:var(--gr);border-style:solid;background:var(--grd);color:var(--gr)}
+.fi-h{display:none}
+.exp-btn{padding:8px 13px;border-radius:9px;background:var(--s1);border:1px solid var(--b);color:var(--tx2);font-size:10px;font-weight:600;cursor:pointer}
+
+.mes-tabs{display:flex;gap:4px;margin-bottom:9px;overflow-x:auto}
+.mes-tab{padding:6px 15px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--b);background:var(--s0);color:var(--tx2);white-space:nowrap;transition:all .15s}
+.mes-tab.active{background:linear-gradient(135deg,#1A5FAA,rgba(0,194,255,.55));border-color:rgba(0,194,255,.4);color:#fff}
+
+.dia-nav{display:flex;gap:4px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px}
+.dia-btn{padding:7px 10px;border-radius:8px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid var(--b);background:var(--s0);color:var(--tx2);text-align:center;min-width:56px;transition:all .15s;flex-shrink:0}
+.dia-btn:hover{background:var(--s1);border-color:rgba(0,194,255,.3)}
+.dia-btn.active{background:linear-gradient(135deg,#1A5FAA,rgba(0,194,255,.6));border-color:rgba(0,194,255,.5);color:#fff}
+.dia-btn.locked{border-color:rgba(77,255,195,.3)}
+.dia-dd{font-size:14px;font-weight:800;font-family:var(--mo)}
+.dia-dm{font-size:8px;opacity:.7}.dia-ds{font-size:7.5px;opacity:.5;text-transform:uppercase}
+
+.lock-banner{display:none;align-items:center;gap:8px;padding:8px 12px;background:var(--grd);border:1px solid rgba(77,255,195,.25);border-radius:9px;margin-bottom:12px;font-size:10px;color:var(--gr);font-weight:600}
+.lock-banner.show{display:flex}
+
+/* 3 KPI CARDS */
+.kpi3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.kcard{background:var(--s0);border:1px solid var(--b);border-radius:13px;padding:13px;position:relative;overflow:hidden}
+.kcard::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:13px 13px 0 0}
+.kcard.kg::before{background:linear-gradient(90deg,#00C2FF,#4DFFC3)}
+.kcard.km::before{background:linear-gradient(90deg,#FFD166,#FF9A3C)}
+.kcard.tm::before{background:linear-gradient(90deg,#C084FC,#FF8090)}
+.kn{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--tx3);margin-bottom:9px}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+.dc{background:var(--s1);border-radius:8px;padding:8px;text-align:center}
+.dl{font-size:7.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);margin-bottom:3px}
+.dv{font-size:19px;font-weight:800;font-family:var(--mo);line-height:1}
+.du{font-size:9px;font-weight:500;opacity:.6}
+.ds{font-size:7.5px;color:var(--tx3);margin-top:2px}
+.bwrap{margin-bottom:7px}
+.btr{height:6px;background:rgba(255,255,255,.05);border-radius:6px;overflow:hidden;position:relative;margin-bottom:3px}
+.bp{position:absolute;top:0;left:0;height:100%;border-radius:6px;opacity:.3;transition:width .5s}
+.br{position:absolute;top:0;left:0;height:100%;border-radius:6px;transition:width .5s}
+.bm{display:flex;justify-content:space-between;font-size:7.5px;font-family:var(--mo);color:var(--tx3)}
+.badge{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;font-family:var(--mo);margin-bottom:8px}
+.b-ok{background:var(--grd);color:var(--gr);border:1px solid rgba(77,255,195,.25)}
+.b-warn{background:var(--amd);color:var(--am);border:1px solid rgba(255,209,102,.25)}
+.b-bad{background:var(--rdd);color:var(--rd);border:1px solid rgba(255,128,144,.25)}
+.b-nd{background:var(--s1);color:var(--tx3);border:1px solid var(--b)}
+.motivo{padding-top:8px;border-top:1px solid var(--b)}
+.ml{font-size:7.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);margin-bottom:5px}
+.chips{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:5px}
+.chip{padding:3px 7px;border-radius:5px;font-size:9px;font-weight:600;cursor:pointer;border:1px solid var(--b);background:var(--s0);color:var(--tx2);user-select:none;transition:all .15s}
+.chip.on{background:rgba(255,209,102,.12);border-color:rgba(255,209,102,.4);color:var(--am)}
+.mobs{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--b);border-radius:6px;color:var(--tx);font-size:10px;font-family:var(--ff);padding:6px 8px;resize:none}
+.mobs:focus{outline:none;border-color:rgba(0,194,255,.4)}.mobs::placeholder{color:var(--tx3)}
+
+/* EQUIPE CARDS */
+.lanc-box{background:var(--s0);border:1px solid var(--b);border-radius:12px;padding:13px;margin-bottom:14px}
+.lanc-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:6px}
+.lanc-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--tx2)}
+.lanc-prog{font-size:10px;color:var(--tx3);font-family:var(--mo)}
+.lanc-prog b{color:var(--gr)}
+
+.eq-card{background:var(--s1);border:1px solid var(--b);border-radius:11px;padding:12px;margin-bottom:8px;transition:border-color .2s}
+.eq-card.ok{border-color:rgba(77,255,195,.3)}
+.eq-card.over{border-color:rgba(255,128,144,.5)}
+.eq-card.alert-km{border-color:rgba(255,209,102,.4)}
+
+.eq-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px}
+.eq-mot{font-size:16px;font-weight:800;color:var(--tx)}
+.eq-sub{font-size:9px;color:var(--tx2);margin-top:2px}
+.eq-horario{text-align:right}
+.eq-hor-lbl{font-size:7.5px;color:var(--tx3);text-transform:uppercase;margin-bottom:2px}
+.eq-hor-val{font-size:13px;font-weight:700;font-family:var(--mo)}
+.eq-hor-val.ok{color:var(--gr)}.eq-hor-val.over{color:var(--rd)}.eq-hor-val.nd{color:var(--tx3)}
+
+/* BARRA HORÁRIO */
+.bar-hor-wrap{margin-bottom:10px}
+.bar-hor-labels{display:flex;justify-content:space-between;font-size:8px;font-family:var(--mo);color:var(--tx3);margin-bottom:3px}
+.bar-hor-track{height:14px;background:rgba(255,255,255,.05);border-radius:8px;position:relative;overflow:visible}
+.bar-hor-fill{height:100%;border-radius:8px;transition:width .5s;display:flex;align-items:center;padding-left:8px;font-size:8px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden}
+.bar-hor-limit{position:absolute;top:-3px;bottom:-3px;width:2px;background:rgba(255,128,144,.9);border-radius:2px}
+.bar-hor-extra{position:absolute;top:0;height:100%;background:rgba(255,128,144,.3);border-radius:0 8px 8px 0}
+
+/* ALERTAS */
+.alert-row{padding:6px 10px;border-radius:7px;font-size:9px;font-weight:600;margin-bottom:7px;border:1px solid;line-height:1.5;display:flex;align-items:center;gap:6px}
+.alert-row.km{background:var(--amd);border-color:rgba(255,209,102,.3);color:var(--am)}
+.alert-row.over{background:var(--rdd);border-color:rgba(255,128,144,.3);color:var(--rd)}
+.alert-row.good{background:var(--grd);border-color:rgba(77,255,195,.3);color:var(--gr)}
+
+/* PLAN STRIP */
+.plan-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;background:var(--s0);border-radius:8px;padding:8px;margin-bottom:10px;text-align:center}
+.psi .psl{font-size:7px;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);margin-bottom:3px}
+.psi .psv{font-size:13px;font-weight:700;font-family:var(--mo);color:var(--tx2)}
+
+/* LANÇAMENTO */
+.real-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;align-items:end}
+.rf{display:flex;flex-direction:column;gap:3px}
+.rl{font-size:8px;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3)}
+.inp{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(0,194,255,.2);border-radius:7px;color:var(--tx);font-size:15px;font-family:var(--mo);font-weight:700;text-align:center;padding:8px 4px;-webkit-appearance:none;appearance:none}
+.inp:focus{outline:none;border-color:var(--cy);background:rgba(0,194,255,.06)}
+.inp.f-ok{border-color:rgba(77,255,195,.3);color:var(--gr)}
+.inp.need{border-color:rgba(255,209,102,.6);animation:pb 2s infinite}
+@keyframes pb{0%,100%{border-color:rgba(255,209,102,.4)}50%{border-color:rgba(255,209,102,.9)}}
+.km-calc{background:rgba(255,255,255,.07);border:1px solid var(--b);border-radius:7px;padding:8px 4px;text-align:center;min-height:42px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+
+/* CARGAS */
+.cargas-sub{border-top:1px solid var(--b);padding-top:8px;margin-bottom:10px}
+.sub-lbl{font-size:8px;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);margin-bottom:6px}
+.carga-row{display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);flex-wrap:wrap;gap:4px}
+.carga-row:last-child{border-bottom:none}
+.cr-rota{font-size:11px;font-weight:700;color:var(--cy)}
+.cr-id{font-size:8px;color:var(--tx3);font-family:var(--mo);margin-left:5px}
+.cr-det{font-size:9px;color:var(--tx2);font-family:var(--mo);margin-top:2px}
+.cr-right{display:flex;align-items:center;gap:5px}
+.inp-p{width:80px;background:rgba(255,255,255,.07);border:1px solid rgba(0,194,255,.2);border-radius:6px;color:var(--tx);font-size:12px;font-family:var(--mo);font-weight:600;text-align:center;padding:4px}
+.inp-p:focus{outline:none;border-color:var(--cy)}
+.ftag{font-size:7.5px;padding:1px 5px;border-radius:3px;font-weight:700}
+.ftag.f{background:var(--grd);color:var(--gr)}.ftag.m{background:var(--amd);color:var(--am)}
+.bok{padding:5px 10px;border-radius:6px;font-size:9px;font-weight:700;cursor:pointer;border:none;transition:all .15s;font-family:var(--mo)}
+.bok.idle{background:rgba(255,255,255,.07);color:var(--tx3)}.bok.idle:hover{background:rgba(77,255,195,.1);color:var(--gr)}
+.bok.done{background:var(--grd);color:var(--gr);border:1px solid rgba(77,255,195,.3)}
+.eq-footer{display:flex;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--b)}
+.btn-eq-ok{padding:9px 20px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:none;transition:all .15s;font-family:var(--mo)}
+.btn-eq-ok.idle{background:rgba(255,255,255,.07);color:var(--tx3)}.btn-eq-ok.idle:hover{background:rgba(77,255,195,.12);color:var(--gr)}
+.btn-eq-ok.done{background:var(--grd);color:var(--gr);border:1px solid rgba(77,255,195,.3)}
+
+.enc-btn{width:100%;padding:11px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid rgba(77,255,195,.3);background:var(--grd);color:var(--gr);letter-spacing:.05em;margin-top:4px}
+.enc-btn:disabled{opacity:.4;cursor:not-allowed}
+.nodata{text-align:center;padding:22px;color:var(--tx3);font-size:11px}
+.footer{text-align:center;padding:11px 0 4px;font-size:8.5px;color:var(--tx3);border-top:1px solid var(--b);margin-top:10px}
+</style>
+</head>
+<body>
+<div class="app">
+
+<div class="hdr">
+  <div style="display:flex;align-items:center">
+    <div class="logo">&#129302;</div>
+    <div><div class="ht">Gelocrim &#8212; PVR</div>
+    <div class="hs">Peso &#183; KM &#183; Tempo &#183; Limite 17:00 por equipe</div></div>
+  </div>
+  <div style="text-align:right">
+    <div class="live"><span class="dot"></span>Ao vivo</div>
+    <div class="clk" id="clk"></div>
+  </div>
+</div>
+
+<div class="imp">
+  <div class="imp-btn" id="dz-f" onclick="document.getElementById('fi-f').click()">
+    <input class="fi-h" type="file" id="fi-f" accept=".xlsx" onchange="importFusion(this.files[0])">
+    <span style="font-size:16px">&#9889;</span><span id="st-f">Fusion DMS .xlsx</span>
+  </div>
+  <div class="imp-btn" id="dz-e" onclick="document.getElementById('fi-e').click()">
+    <input class="fi-h" type="file" id="fi-e" accept=".xlsx" onchange="importEnc(this.files[0])">
+    <span style="font-size:16px">&#128203;</span><span id="st-e">Encerramento .xlsx</span>
+  </div>
+  <button class="exp-btn" onclick="exportar()">&#128190; Exportar</button>
+</div>
+
+<div id="mes-tabs" class="mes-tabs"></div>
+<div id="dia-nav" class="dia-nav"></div>
+<div class="lock-banner" id="lock-banner">&#128274; Dia encerrado &#8212; <span id="lock-info"></span></div>
+
+<!-- 3 KPIs -->
+<div class="kpi3">
+  <div class="kcard kg">
+    <div class="kn">1 &#8212; Peso distribuido</div>
+    <div class="duo">
+      <div class="dc"><div class="dl">Planejado PV</div><div class="dv" id="vpp" style="color:rgba(0,194,255,.7)">---<span class="du">kg</span></div><div class="ds">Programacao</div></div>
+      <div class="dc"><div class="dl">Realizado</div><div class="dv" id="vpr" style="color:var(--gr)">---<span class="du">kg</span></div><div class="ds" id="vpr-s">confirme abaixo</div></div>
+    </div>
+    <div class="bwrap"><div class="btr"><div class="bp" id="bpp" style="background:#00C2FF"></div><div class="br" id="bpr"></div></div>
+    <div class="bm"><span id="lpp">plan.</span><span id="lpr" style="color:var(--gr)">real</span></div></div>
+    <div id="badge-p" style="margin-bottom:8px"></div>
+    <div class="motivo"><div class="ml">Motivo</div><div class="chips" id="ch-p"></div>
+    <textarea class="mobs" id="obs-p" rows="2" placeholder="Observacao..." oninput="saveObs()"></textarea></div>
+  </div>
+
+  <div class="kcard km">
+    <div class="kn">2 &#8212; KM percorrido</div>
+    <div class="duo">
+      <div class="dc"><div class="dl">Planejado (Fusion)</div><div class="dv" id="vkp" style="color:rgba(255,209,102,.7)">---<span class="du">km</span></div><div class="ds">Roteirizacao</div></div>
+      <div class="dc"><div class="dl">Real (hodometro)</div><div class="dv" id="vkr" style="color:var(--am)">---<span class="du">km</span></div><div class="ds" id="vkr-s">soma equipes</div></div>
+    </div>
+    <div class="bwrap"><div class="btr"><div class="bp" id="bkp" style="background:#FFD166"></div><div class="br" id="bkr"></div></div>
+    <div class="bm"><span id="lkp">Fusion</span><span id="lkr" style="color:var(--am)">hodometro</span></div></div>
+    <div id="badge-k" style="margin-bottom:8px"></div>
+    <div id="km-alerts"></div>
+    <div class="motivo"><div class="ml">Motivo</div><div class="chips" id="ch-k"></div>
+    <textarea class="mobs" id="obs-k" rows="2" placeholder="Observacao..." oninput="saveObs()"></textarea></div>
+  </div>
+
+  <div class="kcard tm">
+    <div class="kn">3 &#8212; Tempo (limite 17:00)</div>
+    <div class="duo">
+      <div class="dc"><div class="dl">No horario</div><div class="dv" id="vt-ok" style="color:var(--gr);font-size:22px">---</div><div class="ds">ate 17:00</div></div>
+      <div class="dc"><div class="dl">Horas extras</div><div class="dv" id="vt-ov" style="color:var(--rd);font-size:22px">---</div><div class="ds">apos 17:00</div></div>
+    </div>
+    <div id="badge-t" style="margin-bottom:8px"></div>
+    <div class="motivo"><div class="ml">Motivo</div><div class="chips" id="ch-t"></div>
+    <textarea class="mobs" id="obs-t" rows="2" placeholder="Observacao..." oninput="saveObs()"></textarea></div>
+  </div>
+</div>
+
+<!-- EQUIPES -->
+<div class="lanc-box">
+  <div class="lanc-hdr">
+    <span class="lanc-title" id="lanc-title">Selecione um dia</span>
+    <span class="lanc-prog" id="lanc-prog"></span>
+  </div>
+  <div id="eq-cards"></div>
+  <button class="enc-btn" id="enc-btn" onclick="encerrar()" disabled>&#128274; Encerrar dia</button>
+</div>
+
+<div class="footer">Gelocrim Industria de Gelo Ltda &#183; Manaus-AM &#183; PVR &#183; Limite 17:00 &#183; Alerta KM &gt;5km</div>
+</div>
+<script type="application/json" id="jd">{"2026-08-01":{"mes":"2026-08","km_plan":188.2,"peso_plan":30101.5,"has_prog":false,"t_plan_total":22.7,"cargas":[{"id":"28110","rota":"ROTA 805","mot":"MIRIAN","vda":"NOU8492","equipe":[],"peso_plan":6591.0,"km_plan":13.1,"h_saida_plan":"07:30","h_ret_plan":"16:13","t_plan_h":8.7,"h_saida_real":"15:31","h_ret_real":"16:13","t_real_h":0.7},{"id":"28109","rota":"ROTA 803","mot":"ROLDAO","vda":"OAJ2612","equipe":[],"peso_plan":9933.0,"km_plan":57.8,"h_saida_plan":"07:30","h_ret_plan":"16:15","t_plan_h":null,"h_saida_real":"10:42","h_ret_real":"16:15","t_real_h":5.5},{"id":"28108","rota":"ROTA 801","mot":"ALEX","vda":"OAL8173","equipe":[],"peso_plan":5398.0,"km_plan":74.3,"h_saida_plan":"07:30","h_ret_plan":"13:18","t_plan_h":5.8,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28107","rota":"ROTA 805","mot":"MIRIAN","vda":"OAL8193","equipe":[],"peso_plan":8179.5,"km_plan":43.0,"h_saida_plan":"07:30","h_ret_plan":"15:41","t_plan_h":8.2,"h_saida_real":"07:57","h_ret_real":"15:41","t_real_h":7.7}]},"2026-08-04":{"mes":"2026-08","km_plan":296.5,"peso_plan":72057.5,"has_prog":false,"t_plan_total":48.1,"cargas":[{"id":"28142","rota":"ROTA 804","mot":"ALEX","vda":"NOU8572","equipe":[],"peso_plan":5607.0,"km_plan":18.1,"h_saida_plan":"07:30","h_ret_plan":"09:51","t_plan_h":2.4,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28141","rota":"ROTA 805","mot":"MIRIAN","vda":"NOU8372","equipe":[],"peso_plan":9218.0,"km_plan":47.9,"h_saida_plan":"07:30","h_ret_plan":"14:15","t_plan_h":6.8,"h_saida_real":"08:39","h_ret_real":"14:15","t_real_h":5.6},{"id":"28140","rota":"ROTA 805","mot":"MAICON","vda":"NOU8492","equipe":[],"peso_plan":7377.5,"km_plan":53.2,"h_saida_plan":"07:30","h_ret_plan":"16:33","t_plan_h":9.1,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28139","rota":"ROTA 803","mot":"ROLDAO","vda":"OAL8193","equipe":[],"peso_plan":8739.5,"km_plan":56.4,"h_saida_plan":"07:30","h_ret_plan":"18:51","t_plan_h":11.4,"h_saida_real":"09:19","h_ret_real":"18:51","t_real_h":9.5},{"id":"28138","rota":"ROTA 804","mot":"ALEX","vda":"NOM5373","equipe":[],"peso_plan":12207.0,"km_plan":3.4,"h_saida_plan":"07:30","h_ret_plan":"09:11","t_plan_h":1.7,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28137","rota":"ROTA 802","mot":"HOMERO","vda":"OAJ2612","equipe":[],"peso_plan":14214.0,"km_plan":44.4,"h_saida_plan":"07:30","h_ret_plan":"16:39","t_plan_h":9.2,"h_saida_real":"08:48","h_ret_real":"16:39","t_real_h":7.9},{"id":"28136","rota":"ROTA 801","mot":"JAVIER","vda":"TXR3E78","equipe":[],"peso_plan":14694.5,"km_plan":73.1,"h_saida_plan":"07:30","h_ret_plan":"14:58","t_plan_h":7.5,"h_saida_real":"07:38","h_ret_real":"14:58","t_real_h":7.3}]},"2026-08-05":{"mes":"2026-08","km_plan":279.4,"peso_plan":62987.0,"has_prog":false,"t_plan_total":35.4,"cargas":[{"id":"28160","rota":"ROTA 804","mot":"JAVIER","vda":"OAL8193","equipe":[],"peso_plan":6653.5,"km_plan":59.2,"h_saida_plan":"07:30","h_ret_plan":"18:26","t_plan_h":10.9,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28159","rota":"ROTA 804","mot":"MAICON","vda":"NOM5373","equipe":[],"peso_plan":13721.5,"km_plan":4.9,"h_saida_plan":"07:30","h_ret_plan":"15:40","t_plan_h":null,"h_saida_real":"12:50","h_ret_real":"15:40","t_real_h":2.8},{"id":"28158","rota":"ROTA 804","mot":"ALEX","vda":"OAL8173","equipe":[],"peso_plan":7077.5,"km_plan":44.5,"h_saida_plan":"10:30","h_ret_plan":"18:00","t_plan_h":7.5,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28157","rota":"ROTA 804","mot":"MIRIAN","vda":"NOU8492","equipe":[],"peso_plan":5772.0,"km_plan":65.5,"h_saida_plan":"10:30","h_ret_plan":"18:28","t_plan_h":8.0,"h_saida_real":"13:35","h_ret_real":"18:28","t_real_h":4.9},{"id":"28156","rota":"ROTA 804","mot":"MIRIAN","vda":"NOU8572","equipe":[],"peso_plan":7010.0,"km_plan":26.4,"h_saida_plan":"07:30","h_ret_plan":"08:49","t_plan_h":1.3,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28155","rota":"ROTA 804","mot":"ALEX","vda":"NOU8372","equipe":[],"peso_plan":8487.5,"km_plan":29.4,"h_saida_plan":"07:30","h_ret_plan":"12:18","t_plan_h":4.8,"h_saida_real":"10:03","h_ret_real":"12:18","t_real_h":2.2},{"id":"28154","rota":"ROTA 801","mot":"HOMERO","vda":"OAJ2612","equipe":[],"peso_plan":14265.0,"km_plan":49.5,"h_saida_plan":"07:30","h_ret_plan":"10:26","t_plan_h":2.9,"h_saida_real":null,"h_ret_real":null,"t_real_h":null}]},"2026-08-06":{"mes":"2026-08","km_plan":394.9,"peso_plan":27579.5,"has_prog":false,"t_plan_total":30.7,"cargas":[{"id":"28189","rota":"ROTA 811","mot":"HOMERO","vda":"NOM5373","equipe":[],"peso_plan":1523.0,"km_plan":12.0,"h_saida_plan":"07:30","h_ret_plan":"08:58","t_plan_h":1.5,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28188","rota":"ROTA 804","mot":"MIRIAN","vda":"PHJ3549","equipe":[],"peso_plan":4103.5,"km_plan":80.2,"h_saida_plan":"07:30","h_ret_plan":"18:17","t_plan_h":10.8,"h_saida_real":"08:49","h_ret_real":"18:17","t_real_h":9.5},{"id":"28187","rota":"ROTA 811","mot":"MAICON","vda":"TXR3E78","equipe":[],"peso_plan":13412.5,"km_plan":26.9,"h_saida_plan":"07:30","h_ret_plan":"18:26","t_plan_h":10.9,"h_saida_real":"08:59","h_ret_real":"18:26","t_real_h":9.5},{"id":"28186","rota":"ROTA 811","mot":"ALEX","vda":"NOU8492","equipe":[],"peso_plan":8540.5,"km_plan":275.8,"h_saida_plan":"07:30","h_ret_plan":"15:02","t_plan_h":7.5,"h_saida_real":null,"h_ret_real":null,"t_real_h":null}]},"2026-08-07":{"mes":"2026-08","km_plan":364.5,"peso_plan":45396.0,"has_prog":false,"t_plan_total":33.4,"cargas":[{"id":"28213","rota":"ROTA 804","mot":"JAVIER","vda":"OAL8173","equipe":[],"peso_plan":3295.5,"km_plan":45.6,"h_saida_plan":"07:30","h_ret_plan":"11:32","t_plan_h":4.0,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28212","rota":"ROTA 802","mot":"HOMERO","vda":"NOM5373","equipe":[],"peso_plan":10466.5,"km_plan":4.5,"h_saida_plan":"07:30","h_ret_plan":"14:20","t_plan_h":6.8,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28211","rota":"ROTA 803","mot":"ROLDAO","vda":"TXR3E78","equipe":[],"peso_plan":12686.5,"km_plan":70.5,"h_saida_plan":"07:30","h_ret_plan":"15:43","t_plan_h":8.2,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28210","rota":"ROTA 804","mot":"ALEX","vda":"NOU8492","equipe":[],"peso_plan":5375.0,"km_plan":68.4,"h_saida_plan":"07:30","h_ret_plan":"11:17","t_plan_h":3.8,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28209","rota":"ROTA 805","mot":"MIRIAN","vda":"PHJ3549","equipe":[],"peso_plan":4386.5,"km_plan":70.8,"h_saida_plan":"07:30","h_ret_plan":"18:03","t_plan_h":10.6,"h_saida_real":"08:58","h_ret_real":"18:03","t_real_h":9.1},{"id":"28208","rota":"ROTA 804","mot":"MAICON","vda":"OAL8193","equipe":[],"peso_plan":9186.0,"km_plan":104.7,"h_saida_plan":"07:30","h_ret_plan":"09:58","t_plan_h":null,"h_saida_real":null,"h_ret_real":null,"t_real_h":null}]},"2026-08-08":{"mes":"2026-08","km_plan":267.6,"peso_plan":50392.5,"has_prog":false,"t_plan_total":19.3,"cargas":[{"id":"28244","rota":"ROTA 804","mot":"ALEX","vda":"NOU8492","equipe":[],"peso_plan":3150.0,"km_plan":24.4,"h_saida_plan":"07:30","h_ret_plan":"08:37","t_plan_h":1.1,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28243","rota":"ROTA 804","mot":"MAICON","vda":"TXR3E78","equipe":[],"peso_plan":6150.0,"km_plan":13.1,"h_saida_plan":"07:30","h_ret_plan":"10:55","t_plan_h":null,"h_saida_real":"10:12","h_ret_real":"10:55","t_real_h":0.7},{"id":"28242","rota":"ROTA 804","mot":"JAVIER","vda":"PHJ3549","equipe":[],"peso_plan":2655.5,"km_plan":26.8,"h_saida_plan":"11:30","h_ret_plan":"14:50","t_plan_h":3.3,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28241","rota":"ROTA 803","mot":"ROLDAO","vda":"NOM5373","equipe":[],"peso_plan":12351.0,"km_plan":51.4,"h_saida_plan":"07:30","h_ret_plan":"15:20","t_plan_h":7.8,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28240","rota":"ROTA 804","mot":"JAVIER","vda":"PHJ3549","equipe":[],"peso_plan":2982.5,"km_plan":37.1,"h_saida_plan":"07:30","h_ret_plan":"10:38","t_plan_h":3.1,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28239","rota":"ROTA 804","mot":"ALEX","vda":"OAL8193","equipe":[],"peso_plan":8839.0,"km_plan":33.1,"h_saida_plan":"07:30","h_ret_plan":"11:28","t_plan_h":4.0,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28238","rota":"Rota 804 zona norte","mot":"MAICON","vda":"TXR3E78","equipe":[],"peso_plan":14264.5,"km_plan":81.7,"h_saida_plan":"07:30","h_ret_plan":"02:34","t_plan_h":null,"h_saida_real":"19:35","h_ret_real":"02:34","t_real_h":7.0}]},"2026-08-11":{"mes":"2026-08","km_plan":470.7,"peso_plan":89208.0,"has_prog":false,"t_plan_total":56.4,"cargas":[{"id":"28281","rota":"ROTA 821","mot":"HOMERO","vda":"NOU8372","equipe":[],"peso_plan":6047.5,"km_plan":50.8,"h_saida_plan":"12:30","h_ret_plan":"19:12","t_plan_h":6.7,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28280","rota":"ROTA 801","mot":"JAVIER","vda":"TXR3E78","equipe":[],"peso_plan":11853.0,"km_plan":25.2,"h_saida_plan":"12:30","h_ret_plan":"16:22","t_plan_h":3.9,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28279","rota":"ROTA 803","mot":"ROLDAO","vda":"NOU8572","equipe":[],"peso_plan":7043.5,"km_plan":38.8,"h_saida_plan":"12:30","h_ret_plan":"18:28","t_plan_h":6.0,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28278","rota":"ROTA 804","mot":"MAICON","vda":"OAL8193","equipe":[],"peso_plan":8732.5,"km_plan":65.3,"h_saida_plan":"07:30","h_ret_plan":"14:59","t_plan_h":7.5,"h_saida_real":"08:09","h_ret_real":"14:59","t_real_h":6.8},{"id":"28277","rota":"ROTA 803","mot":"ROLDAO","vda":"NOU8372","equipe":[],"peso_plan":8753.5,"km_plan":39.5,"h_saida_plan":"07:30","h_ret_plan":"11:00","t_plan_h":3.5,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28276","rota":"ROTA 802","mot":"ALEX","vda":"NOU8492","equipe":[],"peso_plan":5070.5,"km_plan":53.6,"h_saida_plan":"12:30","h_ret_plan":"18:34","t_plan_h":6.1,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28275","rota":"ROTA 802","mot":"ALEX","vda":"NOU8492","equipe":[],"peso_plan":8495.5,"km_plan":26.4,"h_saida_plan":"07:30","h_ret_plan":"10:27","t_plan_h":3.0,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28274","rota":"ROTA 805","mot":"MIRIAN","vda":"NOU8H02","equipe":[],"peso_plan":6345.0,"km_plan":56.3,"h_saida_plan":"07:30","h_ret_plan":"16:33","t_plan_h":9.1,"h_saida_real":"07:45","h_ret_real":"16:33","t_real_h":8.8},{"id":"28273","rota":"ROTA 821","mot":"HOMERO","vda":"OAJ2612","equipe":[],"peso_plan":11420.0,"km_plan":53.7,"h_saida_plan":"07:30","h_ret_plan":"11:18","t_plan_h":3.8,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28272","rota":"ROTA 801","mot":"JAVIER","vda":"TXR3E78","equipe":[],"peso_plan":15447.0,"km_plan":61.1,"h_saida_plan":"07:30","h_ret_plan":"14:18","t_plan_h":6.8,"h_saida_real":null,"h_ret_real":null,"t_real_h":null}]},"2026-08-12":{"mes":"2026-08","km_plan":411.7,"peso_plan":39765.5,"has_prog":false,"t_plan_total":33.0,"cargas":[{"id":"28308","rota":"ROTA 821","mot":"HOMERO","vda":"NOU8H02","equipe":["EVANDRO"],"peso_plan":7663.5,"km_plan":170.3,"h_saida_plan":"07:30","h_ret_plan":"10:43","t_plan_h":3.2,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28307","rota":"ROTA 805","mot":"MIRIAN","vda":"OAL8173","equipe":["SIDNEY"],"peso_plan":5841.0,"km_plan":64.4,"h_saida_plan":"07:30","h_ret_plan":"14:54","t_plan_h":7.4,"h_saida_real":"07:42","h_ret_real":"14:54","t_real_h":7.2},{"id":"28306","rota":"ROTA 802","mot":"ALEX","vda":"NOU8372","equipe":["JEAN"],"peso_plan":2308.5,"km_plan":35.6,"h_saida_plan":"07:30","h_ret_plan":"09:52","t_plan_h":2.4,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28305","rota":"ROTA 803","mot":"ROLDAO","vda":"TXR3E78","equipe":["FRANCISCO"],"peso_plan":7756.0,"km_plan":31.8,"h_saida_plan":"07:30","h_ret_plan":"11:27","t_plan_h":4.0,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28304","rota":"ROTA 801","mot":"JAVIER","vda":"NOU8492","equipe":["ARILDO","FRANCISCO"],"peso_plan":7881.0,"km_plan":104.8,"h_saida_plan":"07:30","h_ret_plan":"16:14","t_plan_h":8.7,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28303","rota":"ROTA 804","mot":"MAICON","vda":"OAL8193","equipe":[],"peso_plan":8315.5,"km_plan":4.8,"h_saida_plan":"07:30","h_ret_plan":"14:48","t_plan_h":7.3,"h_saida_real":"07:45","h_ret_real":"14:48","t_real_h":7.0}]},"2026-08-13":{"mes":"2026-08","km_plan":1138.3,"peso_plan":78056.0,"has_prog":false,"t_plan_total":41.3,"cargas":[{"id":"28336","rota":"ROTA 821","mot":"HOMERO","vda":"NOU8572","equipe":[],"peso_plan":8680.0,"km_plan":52.1,"h_saida_plan":"07:30","h_ret_plan":"10:30","t_plan_h":3.0,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28335","rota":"ROTA  802","mot":"ALEX","vda":"NOU8492","equipe":[],"peso_plan":8652.0,"km_plan":49.4,"h_saida_plan":"07:30","h_ret_plan":"11:24","t_plan_h":null,"h_saida_real":"08:50","h_ret_real":"11:24","t_real_h":2.6},{"id":"28334","rota":"ROTA 804","mot":"HOMERO","vda":"PHJ3549","equipe":[],"peso_plan":2490.5,"km_plan":17.4,"h_saida_plan":"07:30","h_ret_plan":"09:14","t_plan_h":1.7,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28333","rota":"ROTA 821","mot":"HOMERO","vda":"PHJ3549","equipe":[],"peso_plan":2783.5,"km_plan":73.6,"h_saida_plan":"07:30","h_ret_plan":"11:15","t_plan_h":3.8,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28332","rota":"ROTA 805","mot":"MIRIAN","vda":"NOU8372","equipe":[],"peso_plan":8454.5,"km_plan":7.2,"h_saida_plan":"07:30","h_ret_plan":"18:09","t_plan_h":10.7,"h_saida_real":"07:56","h_ret_real":"18:09","t_real_h":10.2},{"id":"28331","rota":"ROTA 811","mot":"JAVIER","vda":"TXR3E78","equipe":[],"peso_plan":15182.0,"km_plan":289.3,"h_saida_plan":"07:30","h_ret_plan":"17:36","t_plan_h":10.1,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28330","rota":"ROTA 811","mot":"DANIEL","vda":"NOU8H02","equipe":[],"peso_plan":4915.5,"km_plan":261.8,"h_saida_plan":"07:30","h_ret_plan":"11:55","t_plan_h":4.4,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28329","rota":"ROTA 811","mot":"ALEX","vda":"OAL8193","equipe":[],"peso_plan":7690.5,"km_plan":51.5,"h_saida_plan":"07:30","h_ret_plan":"10:27","t_plan_h":3.0,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28328","rota":"ROTA 802","mot":"ALEX","vda":"NOU8572","equipe":[],"peso_plan":7222.5,"km_plan":17.5,"h_saida_plan":"07:30","h_ret_plan":"12:06","t_plan_h":4.6,"h_saida_real":"09:12","h_ret_real":"12:06","t_real_h":2.9},{"id":"28327","rota":"ROTA 811","mot":"MAICON","vda":"OAJ2612","equipe":["JORGE","LUCAS"],"peso_plan":11985.0,"km_plan":318.5,"h_saida_plan":"07:30","h_ret_plan":"16:37","t_plan_h":null,"h_saida_real":"07:32","h_ret_real":"16:37","t_real_h":9.1}]},"2026-08-14":{"mes":"2026-08","km_plan":930.7,"peso_plan":112840.5,"has_prog":false,"t_plan_total":59.7,"cargas":[{"id":"28369","rota":"ROTA 822","mot":"JAVIER","vda":"NOJ4559","equipe":[],"peso_plan":12300.0,"km_plan":51.1,"h_saida_plan":"07:30","h_ret_plan":"08:55","t_plan_h":1.4,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28368","rota":"ROTA 822","mot":"JAVIER","vda":"NOJ4559","equipe":[],"peso_plan":22600.0,"km_plan":51.1,"h_saida_plan":"07:30","h_ret_plan":"08:55","t_plan_h":1.4,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28367","rota":"ROTA 822","mot":"JAVIER","vda":"OAL8173","equipe":[],"peso_plan":4205.0,"km_plan":51.1,"h_saida_plan":"14:30","h_ret_plan":"16:55","t_plan_h":2.4,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28366","rota":"ROTA 822","mot":"JAVIER","vda":"NOU8492","equipe":[],"peso_plan":3385.0,"km_plan":102.2,"h_saida_plan":"10:30","h_ret_plan":"14:01","t_plan_h":3.5,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28365","rota":"ROTA 822","mot":"JAVIER","vda":"NOM5413","equipe":[],"peso_plan":12300.0,"km_plan":49.8,"h_saida_plan":"07:30","h_ret_plan":"08:57","t_plan_h":1.5,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28364","rota":"ROTA 803","mot":"ROLDAO","vda":"TXR3E78","equipe":[],"peso_plan":12948.5,"km_plan":66.3,"h_saida_plan":"07:30","h_ret_plan":"15:26","t_plan_h":7.9,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28363","rota":"ROTA 802","mot":"ALEX","vda":"NOU8372","equipe":[],"peso_plan":2737.5,"km_plan":38.4,"h_saida_plan":"07:30","h_ret_plan":"13:55","t_plan_h":6.4,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28362","rota":"ROTA 804","mot":"MAICON","vda":"OAL8193","equipe":[],"peso_plan":7495.5,"km_plan":77.5,"h_saida_plan":"07:30","h_ret_plan":"17:16","t_plan_h":9.8,"h_saida_real":"08:08","h_ret_real":"17:16","t_real_h":9.1},{"id":"28361","rota":"ROTA 805","mot":"MIRIAN","vda":"PHJ3549","equipe":[],"peso_plan":4443.5,"km_plan":30.2,"h_saida_plan":"10:30","h_ret_plan":"17:07","t_plan_h":6.6,"h_saida_real":"11:18","h_ret_real":"17:07","t_real_h":5.8},{"id":"28360","rota":"ROTA 805","mot":"MIRIAN","vda":"PHJ3549","equipe":[],"peso_plan":4451.0,"km_plan":16.9,"h_saida_plan":"07:30","h_ret_plan":"09:16","t_plan_h":1.8,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28359","rota":"ROTA 801","mot":"JAVIER","vda":"NOU8572","equipe":[],"peso_plan":8881.0,"km_plan":84.2,"h_saida_plan":"07:30","h_ret_plan":"16:21","t_plan_h":8.9,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28358","rota":"ROTA 821  811","mot":"HOMERO","vda":"NOU8H02","equipe":[],"peso_plan":8441.5,"km_plan":262.5,"h_saida_plan":"10:30","h_ret_plan":"15:57","t_plan_h":5.5,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28357","rota":"ROTA 821","mot":"HOMERO","vda":"NOU8492","equipe":[],"peso_plan":8652.0,"km_plan":49.4,"h_saida_plan":"07:30","h_ret_plan":"10:04","t_plan_h":2.6,"h_saida_real":null,"h_ret_real":null,"t_real_h":null}]},"2026-08-15":{"mes":"2026-08","km_plan":222.2,"peso_plan":21620.0,"has_prog":false,"t_plan_total":18.6,"cargas":[{"id":"28385","rota":"COOPERATIVA","mot":"MAICON","vda":"NOU8H02","equipe":[],"peso_plan":6561.0,"km_plan":13.1,"h_saida_plan":"07:30","h_ret_plan":"08:35","t_plan_h":1.1,"h_saida_real":"07:53","h_ret_real":"08:35","t_real_h":0.7},{"id":"28384","rota":"PONTAO LECY","mot":"ROLDAO","vda":"PHJ3549","equipe":[],"peso_plan":1128.0,"km_plan":29.7,"h_saida_plan":"07:30","h_ret_plan":"09:15","t_plan_h":1.8,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28383","rota":"ROTA  APOIOS MANAUS","mot":"MAICON","vda":"OAL8193","equipe":[],"peso_plan":3804.5,"km_plan":93.4,"h_saida_plan":"07:30","h_ret_plan":"14:50","t_plan_h":7.3,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28382","rota":"ROTA APOIOS 804","mot":"ROLDAO","vda":"TXR3E78","equipe":[],"peso_plan":10126.5,"km_plan":86.0,"h_saida_plan":"10:30","h_ret_plan":"18:51","t_plan_h":8.4,"h_saida_real":null,"h_ret_real":null,"t_real_h":null}]},"2026-08-17":{"mes":"2026-08","km_plan":173.4,"peso_plan":26127.0,"has_prog":false,"t_plan_total":17.9,"cargas":[{"id":"28413","rota":"ROTA 804  RECARGA","mot":"MAICON","vda":"OAJ2612","equipe":["JORGE"],"peso_plan":10635.0,"km_plan":53.8,"h_saida_plan":"14:30","h_ret_plan":"18:48","t_plan_h":4.3,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28412","rota":"ROTA 801","mot":"JAVIER","vda":"NOU8H02","equipe":[],"peso_plan":9582.5,"km_plan":67.1,"h_saida_plan":"07:30","h_ret_plan":"15:30","t_plan_h":8.0,"h_saida_real":"11:02","h_ret_real":"15:30","t_real_h":4.5},{"id":"28411","rota":"ROTA 804","mot":"MAICON","vda":"OAL8173","equipe":["JORGE"],"peso_plan":5909.5,"km_plan":52.5,"h_saida_plan":"07:30","h_ret_plan":"13:03","t_plan_h":5.6,"h_saida_real":null,"h_ret_real":null,"t_real_h":null}]},"2026-08-18":{"mes":"2026-08","km_plan":386.9,"peso_plan":69183.0,"has_prog":false,"t_plan_total":81.1,"cargas":[{"id":"28435","rota":"ROTA 821","mot":"HOMERO","vda":"NOU8H02","equipe":[],"peso_plan":3280.0,"km_plan":19.0,"h_saida_plan":"07:30","h_ret_plan":"09:52","t_plan_h":2.4,"h_saida_real":"08:54","h_ret_real":"09:52","t_real_h":1.0},{"id":"28434","rota":"ROTA 805","mot":"MIRIAN","vda":"OAL8173","equipe":[],"peso_plan":6490.5,"km_plan":3.4,"h_saida_plan":"07:30","h_ret_plan":"10:31","t_plan_h":3.0,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28433","rota":"ROTA 805","mot":"MIRIAN","vda":"PHJ3549","equipe":[],"peso_plan":4044.5,"km_plan":67.9,"h_saida_plan":"07:30","h_ret_plan":"16:15","t_plan_h":8.8,"h_saida_real":"10:22","h_ret_real":"16:15","t_real_h":5.9},{"id":"28432","rota":"ROTA 803","mot":"ROLDAO","vda":"NOU8H02","equipe":[],"peso_plan":11294.0,"km_plan":48.3,"h_saida_plan":"07:30","h_ret_plan":"17:44","t_plan_h":10.2,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28431","rota":"ROTA 804","mot":"MAICON","vda":"TXR3E78","equipe":[],"peso_plan":11904.0,"km_plan":59.7,"h_saida_plan":"13:30","h_ret_plan":"13:03","t_plan_h":23.6,"h_saida_real":"08:07","h_ret_real":"13:03","t_real_h":4.9},{"id":"28430","rota":"ROTA 821","mot":"HOMERO","vda":"OAJ2612","equipe":[],"peso_plan":14943.5,"km_plan":60.1,"h_saida_plan":"10:30","h_ret_plan":"20:19","t_plan_h":9.8,"h_saida_real":"13:46","h_ret_real":"20:19","t_real_h":6.6},{"id":"28429","rota":"ROTA 802","mot":"ALEX","vda":"NOU8572","equipe":[],"peso_plan":7672.5,"km_plan":80.3,"h_saida_plan":"07:30","h_ret_plan":"18:48","t_plan_h":11.3,"h_saida_real":"08:58","h_ret_real":"18:48","t_real_h":9.8},{"id":"28428","rota":"ROTA 801","mot":"JAVIER","vda":"OAL8193","equipe":[],"peso_plan":9554.0,"km_plan":48.2,"h_saida_plan":"07:30","h_ret_plan":"19:31","t_plan_h":12.0,"h_saida_real":"12:20","h_ret_real":"19:31","t_real_h":7.2}]},"2026-08-19":{"mes":"2026-08","km_plan":259.1,"peso_plan":54314.5,"has_prog":false,"t_plan_total":49.7,"cargas":[{"id":"28457","rota":"ROTA 805","mot":"MIRIAN","vda":"NOU8H02","equipe":[],"peso_plan":4064.0,"km_plan":8.5,"h_saida_plan":"07:30","h_ret_plan":"13:44","t_plan_h":6.2,"h_saida_real":"08:14","h_ret_real":"13:44","t_real_h":5.5},{"id":"28456","rota":"ROTA 802","mot":"HOMERO","vda":"OAJ2612","equipe":[],"peso_plan":11906.5,"km_plan":37.7,"h_saida_plan":"07:30","h_ret_plan":"15:29","t_plan_h":8.0,"h_saida_real":"09:13","h_ret_real":"15:29","t_real_h":6.3},{"id":"28455","rota":"ROTA 821","mot":"ALEX","vda":"OAL8173","equipe":[],"peso_plan":7802.5,"km_plan":26.5,"h_saida_plan":"07:30","h_ret_plan":"14:39","t_plan_h":7.2,"h_saida_real":"08:06","h_ret_real":"14:39","t_real_h":6.6},{"id":"28454","rota":"ROTA 803","mot":"ROLDAO","vda":"TXR3E78","equipe":[],"peso_plan":12012.0,"km_plan":47.0,"h_saida_plan":"07:30","h_ret_plan":"15:09","t_plan_h":7.7,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28453","rota":"ROTA 804","mot":"MAICON","vda":"OAL8193","equipe":[],"peso_plan":9378.5,"km_plan":51.7,"h_saida_plan":"07:30","h_ret_plan":"15:36","t_plan_h":8.1,"h_saida_real":"08:12","h_ret_real":"15:36","t_real_h":7.4},{"id":"28452","rota":"ROTA 801","mot":"JAVIER","vda":"NOU8572","equipe":[],"peso_plan":9151.0,"km_plan":87.7,"h_saida_plan":"07:30","h_ret_plan":"20:01","t_plan_h":12.5,"h_saida_real":"11:43","h_ret_real":"20:01","t_real_h":8.3}]},"2026-08-20":{"mes":"2026-08","km_plan":588.6,"peso_plan":43744.5,"has_prog":false,"t_plan_total":29.2,"cargas":[{"id":"28474","rota":"ROTA 805","mot":"MIRIAN","vda":"OAL8193","equipe":[],"peso_plan":6824.0,"km_plan":65.2,"h_saida_plan":"07:30","h_ret_plan":"17:05","t_plan_h":9.6,"h_saida_real":"09:54","h_ret_real":"17:05","t_real_h":7.2},{"id":"28473","rota":"ROTA 811","mot":"ALEX","vda":"NOM5373","equipe":[],"peso_plan":12066.0,"km_plan":11.3,"h_saida_plan":"07:30","h_ret_plan":"19:13","t_plan_h":11.7,"h_saida_real":"09:40","h_ret_real":"19:13","t_real_h":9.6},{"id":"28472","rota":"ROTA 811","mot":"HOMERO","vda":"OAJ2612","equipe":[],"peso_plan":12114.5,"km_plan":193.6,"h_saida_plan":"07:30","h_ret_plan":"15:24","t_plan_h":7.9,"h_saida_real":"08:06","h_ret_real":"15:24","t_real_h":7.3},{"id":"28471","rota":"ROTA 811","mot":"MAICON","vda":"TXR3E78","equipe":[],"peso_plan":12740.0,"km_plan":318.5,"h_saida_plan":"07:30","h_ret_plan":"17:52","t_plan_h":null,"h_saida_real":"09:07","h_ret_real":"17:52","t_real_h":8.8}]},"2026-08-21":{"mes":"2026-08","km_plan":599.8,"peso_plan":67884.0,"has_prog":false,"t_plan_total":54.1,"cargas":[{"id":"28510","rota":"ROTA 821","mot":"HOMERO","vda":"PHJ3549","equipe":[],"peso_plan":4735.5,"km_plan":23.9,"h_saida_plan":"07:30","h_ret_plan":"11:09","t_plan_h":3.7,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28509","rota":"ROTA 802","mot":"ALEX","vda":"NOU8572","equipe":[],"peso_plan":4917.5,"km_plan":51.4,"h_saida_plan":"12:30","h_ret_plan":"16:35","t_plan_h":4.1,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28508","rota":"ROTA 805","mot":"MIRIAN","vda":"OAL8173","equipe":[],"peso_plan":4068.0,"km_plan":56.0,"h_saida_plan":"07:30","h_ret_plan":"14:11","t_plan_h":6.7,"h_saida_real":"08:23","h_ret_real":"14:11","t_real_h":5.8},{"id":"28507","rota":"ROTA 802","mot":"ALEX","vda":"NOU8572","equipe":[],"peso_plan":8868.0,"km_plan":3.4,"h_saida_plan":"07:30","h_ret_plan":"10:19","t_plan_h":2.8,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28506","rota":"ROTA 803","mot":"ROLDAO","vda":"NOU8372","equipe":[],"peso_plan":7514.0,"km_plan":41.8,"h_saida_plan":"07:30","h_ret_plan":"16:38","t_plan_h":9.1,"h_saida_real":"08:48","h_ret_real":"16:38","t_real_h":7.8},{"id":"28505","rota":"ROTA 804","mot":"MAICON","vda":"PHJ3549","equipe":[],"peso_plan":2178.5,"km_plan":46.0,"h_saida_plan":"07:30","h_ret_plan":"10:54","t_plan_h":3.4,"h_saida_real":"09:16","h_ret_real":"10:54","t_real_h":1.6},{"id":"28504","rota":"ROTA 804","mot":"MAICON","vda":"OAL8193","equipe":[],"peso_plan":8136.0,"km_plan":52.7,"h_saida_plan":"07:30","h_ret_plan":"17:33","t_plan_h":10.1,"h_saida_real":"10:25","h_ret_real":"17:33","t_real_h":7.1},{"id":"28503","rota":"ROTA 821","mot":"HOMERO","vda":"OAJ2612","equipe":[],"peso_plan":13396.0,"km_plan":55.4,"h_saida_plan":"07:30","h_ret_plan":"11:31","t_plan_h":4.0,"h_saida_real":"08:05","h_ret_real":"11:31","t_real_h":3.4},{"id":"28502","rota":"ROTA 811","mot":"JAVIER","vda":"TXR3E78","equipe":[],"peso_plan":14070.5,"km_plan":269.2,"h_saida_plan":"07:30","h_ret_plan":"17:40","t_plan_h":10.2,"h_saida_real":"07:54","h_ret_real":"17:40","t_real_h":9.8}]},"2026-08-22":{"mes":"2026-08","km_plan":303.2,"peso_plan":41958.5,"has_prog":false,"t_plan_total":18.9,"cargas":[{"id":"28540","rota":"ROTA 804","mot":"ALEX","vda":"NOU8372","equipe":[],"peso_plan":3629.5,"km_plan":23.3,"h_saida_plan":"07:30","h_ret_plan":"11:01","t_plan_h":3.5,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28539","rota":"ROTA 804","mot":"MAICON","vda":"PHJ3549","equipe":[],"peso_plan":3547.5,"km_plan":42.6,"h_saida_plan":"07:30","h_ret_plan":"14:30","t_plan_h":null,"h_saida_real":"08:37","h_ret_real":"14:30","t_real_h":5.9},{"id":"28538","rota":"ROTA 804","mot":"MAICON","vda":"OAJ2612","equipe":[],"peso_plan":13453.0,"km_plan":99.6,"h_saida_plan":"07:30","h_ret_plan":"12:28","t_plan_h":null,"h_saida_real":"08:39","h_ret_real":"12:28","t_real_h":3.8},{"id":"28537","rota":"ROTA 804","mot":"ROLDAO","vda":"OAL8193","equipe":[],"peso_plan":5807.5,"km_plan":77.6,"h_saida_plan":"07:30","h_ret_plan":"14:31","t_plan_h":7.0,"h_saida_real":"07:33","h_ret_real":"14:31","t_real_h":7.0},{"id":"28536","rota":"ROTA 804","mot":"JAVIER","vda":"TXR3E78","equipe":[],"peso_plan":15521.0,"km_plan":60.1,"h_saida_plan":"07:30","h_ret_plan":"15:55","t_plan_h":8.4,"h_saida_real":"07:17","h_ret_real":"15:55","t_real_h":8.6}]},"2026-08-25":{"mes":"2026-08","km_plan":401.1,"peso_plan":67480,"has_prog":true,"t_plan_total":47.8,"cargas":[{"id":"28585","rota":"ROTA 805","mot":"MIRIAN","vda":"PHJ3549","equipe":[],"peso_plan":4534.0,"km_plan":73.2,"h_saida_plan":"07:30","h_ret_plan":"15:28","t_plan_h":8.0,"h_saida_real":"09:48","h_ret_real":"15:28","t_real_h":5.7},{"id":"28584","rota":"ROTA 804","mot":"MAICON","vda":"NOU8492","equipe":[],"peso_plan":5852.0,"km_plan":28.8,"h_saida_plan":"07:30","h_ret_plan":"10:17","t_plan_h":null,"h_saida_real":"07:07","h_ret_real":"10:17","t_real_h":3.2},{"id":"28583","rota":"ROTA 804","mot":"MAICON","vda":"OAL8193","equipe":[],"peso_plan":8766.0,"km_plan":57.9,"h_saida_plan":"07:30","h_ret_plan":"10:38","t_plan_h":3.1,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28582","rota":"ROTA 805","mot":"MIRIAN","vda":"PHJ3549","equipe":[],"peso_plan":4200.0,"km_plan":24.4,"h_saida_plan":"07:30","h_ret_plan":"08:37","t_plan_h":1.1,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28581","rota":"ROTA 821","mot":"HOMERO","vda":"OAJ2612","equipe":[],"peso_plan":13996.0,"km_plan":53.6,"h_saida_plan":"07:30","h_ret_plan":"15:32","t_plan_h":8.0,"h_saida_real":"09:49","h_ret_real":"15:32","t_real_h":5.7},{"id":"28580","rota":"ROTA 802","mot":"ALEX","vda":"NOU8H02","equipe":[],"peso_plan":8434.0,"km_plan":56.3,"h_saida_plan":"07:30","h_ret_plan":"15:44","t_plan_h":8.2,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28579","rota":"ROTA 801","mot":"JAVIER","vda":"TXR3E78","equipe":[],"peso_plan":14142.5,"km_plan":52.8,"h_saida_plan":"07:30","h_ret_plan":"16:05","t_plan_h":8.6,"h_saida_real":"08:03","h_ret_real":"16:05","t_real_h":8.0},{"id":"28578","rota":"ROTA 803","mot":"ROLDAO","vda":"NOU8372","equipe":[],"peso_plan":8705.0,"km_plan":54.1,"h_saida_plan":"07:30","h_ret_plan":"18:15","t_plan_h":10.8,"h_saida_real":"08:54","h_ret_real":"18:15","t_real_h":9.3}]},"2026-08-26":{"mes":"2026-08","km_plan":1030.3,"peso_plan":51796,"has_prog":true,"t_plan_total":50.0,"cargas":[{"id":"28606","rota":"ROTA 811","mot":"JAVIER","vda":"TXR3E78","equipe":[],"peso_plan":12493.0,"km_plan":690.9,"h_saida_plan":"07:30","h_ret_plan":"18:46","t_plan_h":11.3,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28605","rota":"ROTA 821","mot":"HOMERO","vda":"NOU8572","equipe":[],"peso_plan":5284.0,"km_plan":22.9,"h_saida_plan":"13:30","h_ret_plan":"18:26","t_plan_h":4.9,"h_saida_real":"14:35","h_ret_real":"18:26","t_real_h":3.8},{"id":"28604","rota":"ROTA 805","mot":"MIRIAN","vda":"PHJ3549","equipe":[],"peso_plan":2249.0,"km_plan":47.2,"h_saida_plan":"14:30","h_ret_plan":"19:02","t_plan_h":4.5,"h_saida_real":"13:51","h_ret_real":"19:02","t_real_h":5.2},{"id":"28603","rota":"ROTA 804","mot":"MAICON","vda":"OAL8193","equipe":[],"peso_plan":7849.5,"km_plan":61.8,"h_saida_plan":"09:30","h_ret_plan":"16:32","t_plan_h":7.0,"h_saida_real":"10:01","h_ret_real":"16:32","t_real_h":6.5},{"id":"28602","rota":"ROTA 804","mot":"MAICON","vda":"PHJ3549","equipe":[],"peso_plan":3423.5,"km_plan":37.3,"h_saida_plan":"07:30","h_ret_plan":"08:39","t_plan_h":null,"h_saida_real":"07:14","h_ret_real":"08:39","t_real_h":1.4},{"id":"28601","rota":"ROTA 801","mot":"ALEX","vda":"NOU8H02","equipe":[],"peso_plan":8760.5,"km_plan":97.4,"h_saida_plan":"09:30","h_ret_plan":"18:07","t_plan_h":8.6,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28600","rota":"ROTA 801","mot":"ALEX","vda":"NOU8572","equipe":[],"peso_plan":3895.0,"km_plan":10.5,"h_saida_plan":"07:30","h_ret_plan":"08:47","t_plan_h":1.3,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28599","rota":"ROTA 805","mot":"MIRIAN","vda":"NOU8372","equipe":[],"peso_plan":7681.5,"km_plan":43.2,"h_saida_plan":"07:30","h_ret_plan":"13:52","t_plan_h":6.4,"h_saida_real":"08:08","h_ret_real":"13:52","t_real_h":5.7},{"id":"28598","rota":"ROTA 821","mot":"HOMERO","vda":"OAJ2612","equipe":[],"peso_plan":12643.0,"km_plan":19.1,"h_saida_plan":"07:30","h_ret_plan":"13:28","t_plan_h":6.0,"h_saida_real":"07:49","h_ret_real":"13:28","t_real_h":5.6}]},"2026-08-27":{"mes":"2026-08","km_plan":577.6,"peso_plan":58820,"has_prog":true,"t_plan_total":41.4,"cargas":[{"id":"28628","rota":"ROTA 811","mot":"HOMERO","vda":"NOU8H02","equipe":[],"peso_plan":5130.0,"km_plan":172.9,"h_saida_plan":"13:30","h_ret_plan":"17:53","t_plan_h":4.4,"h_saida_real":"12:51","h_ret_real":"17:53","t_real_h":5.0},{"id":"28627","rota":"ROTA 801","mot":"ROLDAO","vda":"NOU8372","equipe":[],"peso_plan":6259.0,"km_plan":58.3,"h_saida_plan":"10:30","h_ret_plan":"16:04","t_plan_h":5.6,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28626","rota":"ROTA 805","mot":"MIRIAN","vda":"PHJ3549","equipe":[],"peso_plan":4400.0,"km_plan":110.7,"h_saida_plan":"07:30","h_ret_plan":"17:51","t_plan_h":10.4,"h_saida_real":"07:37","h_ret_real":"17:51","t_real_h":10.2},{"id":"28625","rota":"ROTA 811","mot":"ALEX","vda":"OAL8193","equipe":[],"peso_plan":7134.5,"km_plan":51.5,"h_saida_plan":"07:30","h_ret_plan":"11:48","t_plan_h":4.3,"h_saida_real":"08:50","h_ret_real":"11:48","t_real_h":3.0},{"id":"28624","rota":"ROTA 802","mot":"ALEX","vda":"OAL8193","equipe":[],"peso_plan":7870.5,"km_plan":55.9,"h_saida_plan":"07:30","h_ret_plan":"09:42","t_plan_h":2.2,"h_saida_real":"08:57","h_ret_real":"09:42","t_real_h":0.7},{"id":"28623","rota":"ROTA 801","mot":"ROLDAO","vda":"NOU8372","equipe":[],"peso_plan":3347.0,"km_plan":49.6,"h_saida_plan":"07:30","h_ret_plan":"10:18","t_plan_h":2.8,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28622","rota":"ROTA 821","mot":"HOMERO","vda":"OAJ2612","equipe":[],"peso_plan":15781.0,"km_plan":49.4,"h_saida_plan":"07:30","h_ret_plan":"10:18","t_plan_h":2.8,"h_saida_real":"07:44","h_ret_real":"10:18","t_real_h":2.6},{"id":"28621","rota":"ROTA 811","mot":"MAICON","vda":"TXR3E78","equipe":[],"peso_plan":14097.5,"km_plan":29.3,"h_saida_plan":"07:30","h_ret_plan":"16:23","t_plan_h":8.9,"h_saida_real":"07:16","h_ret_real":"16:23","t_real_h":9.1}]},"2026-08-28":{"mes":"2026-08","km_plan":515.5,"peso_plan":41750,"has_prog":true,"t_plan_total":44.8,"cargas":[{"id":"28646","rota":"ROTA 805","mot":"MIRIAN","vda":"PHJ3549","equipe":[],"peso_plan":2779.0,"km_plan":76.8,"h_saida_plan":"07:30","h_ret_plan":"18:20","t_plan_h":10.8,"h_saida_real":"11:12","h_ret_real":"18:20","t_real_h":7.1},{"id":"28645","rota":"ROTA 804","mot":"JAVIER","vda":"OAL8193","equipe":[],"peso_plan":8656.0,"km_plan":47.0,"h_saida_plan":"07:30","h_ret_plan":"16:40","t_plan_h":9.2,"h_saida_real":"08:34","h_ret_real":"16:40","t_real_h":8.1},{"id":"28644","rota":"ROTA 803","mot":"ROLDAO","vda":"NOU8372","equipe":[],"peso_plan":5307.0,"km_plan":45.3,"h_saida_plan":"07:30","h_ret_plan":"16:33","t_plan_h":9.1,"h_saida_real":"07:51","h_ret_real":"16:33","t_real_h":8.7},{"id":"28643","rota":"ROTA 802","mot":"ALEX","vda":"NOU8572","equipe":[],"peso_plan":5630.0,"km_plan":54.4,"h_saida_plan":"12:30","h_ret_plan":"18:14","t_plan_h":5.7,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28642","rota":"ROTA 802","mot":"ALEX","vda":"NOU8572","equipe":[],"peso_plan":8365.0,"km_plan":26.7,"h_saida_plan":"07:30","h_ret_plan":"09:50","t_plan_h":2.3,"h_saida_real":null,"h_ret_real":null,"t_real_h":null},{"id":"28641","rota":"ROTA 811","mot":"MAICON","vda":"TXR3E78","equipe":[],"peso_plan":12187.0,"km_plan":265.3,"h_saida_plan":"07:30","h_ret_plan":"15:14","t_plan_h":7.7,"h_saida_real":"07:08","h_ret_real":"15:14","t_real_h":8.1}]},"2026-09-01":{"mes":"2026-09","n_equipes":6,"janela_total_min":3168,"janela_total_h":52.8,"km_plan":358.4,"peso_plan_pv":68726,"peso_trocas":7972,"peso_bonif":1195,"peso_consig":40500,"peso_total":118393,"has_prog":true,"equipes":{"HOMERO":{"cargas":[{"id":"28723","rota":"ROTA 821","vda":"NOU8492","km_plan":36.2,"peso_plan":1011.5,"h_saida_plan":"07:30","h_ret_plan":"14:23","t_plan_h":6.9,"h_saida_real":"","h_ret_real":"","tipo":"1carga","km_real":null,"peso_real":40500,"ok":true},{"id":"28712","rota":"ROTA 821","vda":"OAJ2612","km_plan":49.9,"peso_plan":11932.0,"h_saida_plan":"07:30","h_ret_plan":"12:46","t_plan_h":5.3,"h_saida_real":"09:40","h_ret_real":"16:58","tipo":"1carga","km_real":56,"peso_real":14423,"ok":true,"atraso_saida_min":130,"dif_km":6.1}],"vdas":["NOU8492","OAJ2612"],"equipe":["HOMERO"],"km_plan":86.1,"peso_plan":12943.5,"h_saida_plan":"07:30","h_limite":"16:18","t_janela_h":8.8,"h_ret_real":"16:58","apos_17_min":-2,"km_real":56,"ok":true},"MAICON":{"cargas":[{"id":"28710","rota":"ROTA 804","vda":"TXR3E78","km_plan":61.8,"peso_plan":14632.0,"h_saida_plan":"07:30","h_ret_plan":"11:25","t_plan_h":3.9,"h_saida_real":"08:35","h_ret_real":"12:53","tipo":"1carga","km_real":62,"peso_real":15290,"ok":true,"atraso_saida_min":65,"dif_km":0.2},{"id":"28722","rota":"ROTA 804","vda":"NOU8H02","km_plan":5.5,"peso_plan":7723.5,"h_saida_plan":"12:30","h_ret_plan":"18:13","t_plan_h":5.7,"h_saida_real":"14:57","h_ret_real":"17:48","tipo":"recarga","km_real":39,"peso_real":8348,"ok":true,"atraso_saida_min":147,"dif_km":33.5}],"vdas":["TXR3E78","NOU8H02"],"equipe":["MAICON"],"km_plan":67.3,"peso_plan":22355.5,"h_saida_plan":"07:30","h_limite":"16:18","t_janela_h":8.8,"h_ret_real":"17:48","apos_17_min":48,"km_real":101,"ok":true},"MIRIAN":{"cargas":[{"id":"28720","rota":"ROTA 805","vda":"PHJ3549","km_plan":58.4,"peso_plan":4340.5,"h_saida_plan":"07:30","h_ret_plan":"10:38","t_plan_h":3.1,"h_saida_real":"08:07","h_ret_real":"14:00","tipo":"1carga","km_real":59,"peso_real":4676,"ok":true,"atraso_saida_min":37,"dif_km":0.6},{"id":"28721","rota":"ROTA 805","vda":"PHJ3549","km_plan":38.5,"peso_plan":1919.5,"h_saida_plan":"11:30","h_ret_plan":"21:36","t_plan_h":10.1,"h_saida_real":"15:10","h_ret_real":"18:01","tipo":"recarga","km_real":34,"peso_real":1940,"ok":true,"atraso_saida_min":220,"dif_km":-4.5}],"vdas":["PHJ3549"],"equipe":["MIRIAN"],"km_plan":96.9,"peso_plan":6260.0,"h_saida_plan":"07:30","h_limite":"16:18","t_janela_h":8.8,"h_ret_real":"18:01","apos_17_min":61,"km_real":93,"ok":true},"JAVIER":{"cargas":[{"id":"28718","rota":"ROTA 801","vda":"NOU8H02","km_plan":29.0,"peso_plan":4706.5,"h_saida_plan":"07:30","h_ret_plan":"10:51","t_plan_h":3.4,"h_saida_real":"08:18","h_ret_real":"11:32","tipo":"1carga","km_real":34,"peso_real":5128,"ok":true,"atraso_saida_min":48,"dif_km":5.0},{"id":"28716","rota":"ROTA 801","vda":"NOU8372","km_plan":0.6,"peso_plan":7818.5,"h_saida_plan":"11:30","h_ret_plan":"23:15","t_plan_h":11.8,"h_saida_real":"12:16","h_ret_real":"19:10","tipo":"recarga","km_real":82,"peso_real":8867,"ok":true,"atraso_saida_min":46,"dif_km":81.4}],"vdas":["NOU8372","NOU8H02"],"equipe":["JAVIER"],"km_plan":29.6,"peso_plan":12525.0,"h_saida_plan":"07:30","h_limite":"16:18","t_janela_h":8.8,"h_ret_real":"19:10","apos_17_min":130,"km_real":116,"ok":true},"ROLDAO":{"cargas":[{"id":"28717","rota":"ROTA 803","vda":"OAL8193","km_plan":46.3,"peso_plan":5745.5,"h_saida_plan":"07:30","h_ret_plan":"16:30","t_plan_h":9.0,"h_saida_real":"08:12","h_ret_real":"15:54","tipo":"1carga","km_real":57,"peso_real":5977,"ok":true,"atraso_saida_min":42,"dif_km":10.7}],"vdas":["OAL8193"],"equipe":["ROLDAO"],"km_plan":46.3,"peso_plan":5745.5,"h_saida_plan":"07:30","h_limite":"16:18","t_janela_h":8.8,"h_ret_real":"15:54","apos_17_min":-66,"km_real":57,"ok":true},"ALEX":{"cargas":[{"id":"28713","rota":"ROTA 802","vda":"NOU8572","km_plan":31.7,"peso_plan":8788.0,"h_saida_plan":"07:30","h_ret_plan":"10:50","t_plan_h":3.3,"h_saida_real":"08:32","h_ret_real":"11:53","tipo":"1carga","km_real":38,"peso_real":5858,"ok":true,"atraso_saida_min":62,"dif_km":6.3},{"id":"28714","rota":"ROTA 802","vda":"NOU8572","km_plan":0.5,"peso_plan":6860.0,"h_saida_plan":"12:30","h_ret_plan":"18:02","t_plan_h":5.5,"h_saida_real":"14:53","h_ret_real":"19:20","tipo":"recarga","km_real":64,"peso_real":7386,"ok":true,"atraso_saida_min":143,"dif_km":63.5}],"vdas":["NOU8572"],"equipe":["ALEX"],"km_plan":32.2,"peso_plan":15648.0,"h_saida_plan":"07:30","h_limite":"16:18","t_janela_h":8.8,"h_ret_real":"19:20","apos_17_min":140,"km_real":102,"ok":true}}}}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+var D=JSON.parse(document.getElementById('jd').textContent);
+var DIA=null,MES=null,LIMITE=1020; // 17:00 em minutos
+var LE={"2026-09-01":{"HOMERO":{"h_ret_real":"16:58","km_total":56,"ok":true,"hod_ini":"","hod_ret":""},"MAICON":{"h_ret_real":"17:48","km_total":101,"ok":true,"hod_ini":"","hod_ret":""},"MIRIAN":{"h_ret_real":"18:01","km_total":93,"ok":true,"hod_ini":"","hod_ret":""},"JAVIER":{"h_ret_real":"19:10","km_total":116,"ok":true,"hod_ini":"","hod_ret":""},"ROLDAO":{"h_ret_real":"15:54","km_total":57,"ok":true,"hod_ini":"","hod_ret":""},"ALEX":{"h_ret_real":"19:20","km_total":102,"ok":true,"hod_ini":"","hod_ret":""}}},LC={"2026-09-01":{"28723":{"peso_real":40500,"ok":true},"28712":{"peso_real":14423,"ok":true},"28710":{"peso_real":15290,"ok":true},"28722":{"peso_real":8348,"ok":true},"28720":{"peso_real":4676,"ok":true},"28721":{"peso_real":1940,"ok":true},"28718":{"peso_real":5128,"ok":true},"28716":{"peso_real":8867,"ok":true},"28717":{"peso_real":5977,"ok":true},"28713":{"peso_real":5858,"ok":true},"28714":{"peso_real":7386,"ok":true}}},LD={"2026-09-01":{"locked":true,"lock_ts":"22:29 de 01/09/2026","c_p":[],"c_k":[],"c_t":[],"obs_p":"","obs_k":"","obs_t":""}};
+var nD=['Dom','Seg','Ter','Qua','Qui','Sex','Sab'];
+var nM=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+var MOTS={
+  p:['Falta producao','Cliente fechado','Transito','Avaria produto','Recarga parcial','Evento extra','Outros'],
+  k:['Rota alternativa','Evento extra','Retorno consig.','Manutencao','Transito','Rio Preto Eva','Outros'],
+  t:['Transito pesado','Recarga camara','Cliente ausente','Avaria veiculo','Chuva intensa','Evento extra','Outros']
+};
+
+function fN(v,d){if(!v&&v!==0)return '---';return(+v).toLocaleString('pt-BR',{maximumFractionDigits:d||0,minimumFractionDigits:d||0});}
+function hm2min(h){if(!h)return null;var p=h.split(':');return +p[0]*60+ +p[1];}
+function min2hm(m){if(m===null||m===undefined)return '---';var mm=Math.round(m);return String(Math.floor(mm/60)).padStart(2,'0')+':'+String(mm%60).padStart(2,'0');}
+
+function tick(){var e=document.getElementById('clk');if(e)e.textContent=new Date().toLocaleDateString('pt-BR')+' - '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
+tick();setInterval(tick,1000);
+
+function getMeses(){var ms={};Object.keys(D).forEach(function(d){ms[d.substring(0,7)]=true;});return Object.keys(ms).sort();}
+function buildMesTabs(){
+  var el=document.getElementById('mes-tabs');el.innerHTML='';
+  getMeses().forEach(function(m){var pts=m.split('-');var btn=document.createElement('div');btn.className='mes-tab'+(m===MES?' active':'');btn.textContent=nM[+pts[1]-1].toUpperCase()+' '+pts[0];
+  (function(mm){btn.addEventListener('click',function(){selMes(mm);});})(m);el.appendChild(btn);});
+}
+function selMes(m){MES=m;buildMesTabs();buildDiaNav();var dias=Object.keys(D).filter(function(d){return d.startsWith(m);}).sort();if(dias.length)selDia(dias[dias.length-1]);}
+function buildDiaNav(){
+  var el=document.getElementById('dia-nav');el.innerHTML='';if(!MES)return;
+  Object.keys(D).filter(function(d){return d.startsWith(MES);}).sort().forEach(function(dia){
+    var pts=dia.split('-');var dt=new Date(+pts[0],+pts[1]-1,+pts[2]);var ld=LD[dia]||{};
+    var btn=document.createElement('div');btn.className='dia-btn'+(dia===DIA?' active':'')+(ld.locked?' locked':'');
+    btn.innerHTML='<div class="dia-dd">'+pts[2]+'</div><div class="dia-dm">'+nM[dt.getMonth()]+'</div><div class="dia-ds">'+nD[dt.getDay()]+'</div>'+(ld.locked?'<div style="font-size:9px">&#128274;</div>':'');
+    (function(d){btn.addEventListener('click',function(){selDia(d);});})(dia);el.appendChild(btn);});
+}
+function selDia(dia){
+  DIA=dia;if(!LE[dia])LE[dia]={};if(!LC[dia])LC[dia]={};if(!LD[dia])LD[dia]={c_p:[],c_k:[],c_t:[]};
+  buildDiaNav();
+  var ld=LD[dia];var lb=document.getElementById('lock-banner');
+  if(ld.locked){lb.classList.add('show');document.getElementById('lock-info').textContent='Trancado em '+ld.lock_ts;}else lb.classList.remove('show');
+  document.getElementById('obs-p').value=ld.obs_p||'';
+  document.getElementById('obs-k').value=ld.obs_k||'';
+  document.getElementById('obs-t').value=ld.obs_t||'';
+  buildChips('p');buildChips('k');buildChips('t');
+  renderKPIs();renderEquipes();
+}
+
+function renderKPIs(){
+  if(!DIA)return;
+  var d=D[DIA]||{},equipes=d.equipes||{};
+
+  // PESO
+  var pp=d.peso_plan_pv||0,pr=0,nOkC=0,totC=0;
+  Object.values(equipes).forEach(function(E){
+    E.cargas.forEach(function(c){
+      totC++;
+      var lc=LC[DIA][c.id]||{};
+      if(lc.ok){pr+=(lc.peso_real!==undefined&&lc.peso_real!==''?+lc.peso_real:c.peso_plan);nOkC++;}
+    });
+  });
+  setText('vpp',fN(pp),'kg');setText('vpr',pr?fN(pr):'---','kg');
+  document.getElementById('vpr-s').textContent=nOkC+'/'+totC+' cargas conf.';
+  setBar('bpp','bpr','lpp','lpr',pp,pr,'#4DFFC3');setBadge('badge-p',pp,pr,'kg','p');
+
+  // KM — hodometro por equipe, alerta >5km
+  var kp=d.km_plan||0,kr=0,nKM=0,alertas=[];
+  Object.keys(equipes).forEach(function(mot){
+    var E=equipes[mot],le=LE[DIA][mot]||{};
+    if(le.hod_ini&&le.hod_ret&&+le.hod_ret>+le.hod_ini){
+      var kmR=Math.round((+le.hod_ret- +le.hod_ini)*10)/10;
+      kr+=kmR;nKM++;
+      var dif=Math.round((kmR-E.km_plan)*10)/10;
+      if(Math.abs(dif)>5)alertas.push({mot:mot,plan:E.km_plan,real:kmR,dif:dif});
+    }
+  });
+  kr=Math.round(kr*10)/10;
+  setText('vkp',fN(kp,1),'km');setText('vkr',kr?fN(kr,1):'---','km');
+  document.getElementById('vkr-s').textContent=kr?nKM+' equipes reg.':'lance hodometros';
+  setBar('bkp','bkr','lkp','lkr',kp,kr,'#FF9A3C');setBadge('badge-k',kp,kr,'km','k');
+  var alEl=document.getElementById('km-alerts');
+  if(alertas.length){alEl.innerHTML=alertas.map(function(a){return '<div class="alert-row km">&#9888; '+a.mot+': plan '+fN(a.plan,1)+' vs real '+fN(a.real,1)+' km ('+(a.dif>0?'+':'')+fN(a.dif,1)+' km)</div>';}).join('');}
+  else alEl.innerHTML='';
+
+  // TEMPO — retorno real vs 17:00 por equipe
+  var nEq=Object.keys(equipes).length,nOk=0,nOver=0,nReg=0;
+  Object.keys(equipes).forEach(function(mot){
+    var E=equipes[mot],le=LE[DIA][mot]||{};
+    var hRR=le.h_ret_real||null;
+    if(!hRR){var best=null;E.cargas.forEach(function(c){if(c.h_ret_real){var t=hm2min(c.h_ret_real);if(!best||t>best){best=t;hRR=c.h_ret_real;}}});}
+    if(hRR){nReg++;if(hm2min(hRR)<=LIMITE)nOk++;else nOver++;}
+  });
+  document.getElementById('vt-ok').textContent=nReg?nOk:'---';
+  document.getElementById('vt-ov').textContent=nReg?nOver:'---';
+  var bt=document.getElementById('badge-t');
+  if(!nReg)bt.innerHTML='<span class="badge b-nd">Sem retornos lancados</span>';
+  else if(nOver===0)bt.innerHTML='<span class="badge b-ok">&#10003; Todas retornaram ate 17:00</span>';
+  else bt.innerHTML='<span class="badge b-bad">&#9888; '+nOver+' equipe(s) apos 17:00</span>';
+
+  // Enc btn
+  var nOkEq=Object.keys(equipes).filter(function(m){return(LE[DIA][m]||{}).ok;}).length;
+  var enc=document.getElementById('enc-btn');
+  enc.disabled=(LD[DIA]||{}).locked;
+  enc.textContent=(LD[DIA]||{}).locked?'&#128274; Encerrado':'&#128274; Encerrar ('+nOkEq+'/'+nEq+' equipes OK)';
+}
+
+function setText(id,val,unit){var el=document.getElementById(id);if(el)el.innerHTML=val+'<span class="du">'+unit+'</span>';}
+function setBar(bpId,brId,lpId,lrId,vP,vR,colR){
+  var mx=Math.max(vP,vR,1);
+  var bp=document.getElementById(bpId),br=document.getElementById(brId),lp=document.getElementById(lpId),lr=document.getElementById(lrId);
+  if(bp)bp.style.width=(vP?vP/mx*100:0)+'%';if(br){br.style.width=(vR?vR/mx*100:0)+'%';br.style.background=colR;}
+  if(lp)lp.textContent=fN(vP,vP%1?1:0);if(lr)lr.textContent=vR?fN(vR,vR%1?1:0):'---';
+}
+function setBadge(elId,plan,real,unit,tipo){
+  var el=document.getElementById(elId);if(!el)return;
+  if(!real){el.innerHTML='<span class="badge b-nd">Sem lancamento</span>';return;}
+  if(!plan){el.innerHTML='<span class="badge b-nd">Sem planejado</span>';return;}
+  var pct=Math.round(real/plan*100),dif=real-plan;
+  var ok=tipo==='p'?(pct>=90&&pct<=112):tipo==='k'?(pct>=85&&pct<=118):false;
+  var med=Math.abs(pct-100)<=25;
+  var cls=ok?'b-ok':med?'b-warn':'b-bad';
+  var arrow=dif>=0?'&#9650;':'&#9660;';
+  el.innerHTML='<span class="badge '+cls+'">'+arrow+' '+(dif>=0?'+':'')+fN(dif,dif%1?1:0)+' '+unit+' / '+(pct-100>=0?'+':'')+(pct-100)+'%</span>';
+}
+function buildChips(t){
+  var el=document.getElementById('ch-'+t);if(!el)return;
+  var sel=(LD[DIA]||{})['c_'+t]||[];
+  el.innerHTML=MOTS[t].map(function(x){return '<div class="chip'+(sel.indexOf(x)>=0?' on':'')+'" onclick="togC(''+t+'',''+x+'')">'+x+'</div>';}).join('');
+}
+function togC(t,x){if(!DIA)return;if(!LD[DIA])LD[DIA]={c_p:[],c_k:[],c_t:[]};var k='c_'+t,i=LD[DIA][k].indexOf(x);if(i>=0)LD[DIA][k].splice(i,1);else LD[DIA][k].push(x);buildChips(t);}
+function saveObs(){if(!DIA||!LD[DIA])return;LD[DIA].obs_p=document.getElementById('obs-p').value;LD[DIA].obs_k=document.getElementById('obs-k').value;LD[DIA].obs_t=document.getElementById('obs-t').value;}
+
+function renderEquipes(){
+  var el=document.getElementById('eq-cards');
+  if(!DIA||!D[DIA]){el.innerHTML='<div class="nodata">Selecione um dia</div>';return;}
+  var equipes=D[DIA].equipes||{};
+  var nEq=Object.keys(equipes).length;
+  var nOk=Object.keys(equipes).filter(function(m){return(LE[DIA][m]||{}).ok;}).length;
+  document.getElementById('lanc-title').textContent=DIA.split('-').reverse().join('/')+' - '+nEq+' equipes - limite 17:00';
+  document.getElementById('lanc-prog').innerHTML='<b>'+nOk+'</b>/'+nEq+' OK';
+
+  var html='';
+  Object.keys(equipes).sort().forEach(function(mot){
+    var E=equipes[mot],le=LE[DIA][mot]||{};
+    var isOk=le.ok||false;
+
+    // KM
+    var kmReal=null,kmDif=null,kmAlert=false;
+    if(le.hod_ini&&le.hod_ret&&+le.hod_ret>+le.hod_ini){
+      kmReal=Math.round((+le.hod_ret- +le.hod_ini)*10)/10;
+      kmDif=Math.round((kmReal-E.km_plan)*10)/10;
+      kmAlert=Math.abs(kmDif)>5;
+    }
+
+    // RETORNO REAL — lançado ou Fusion
+    var hRR=le.h_ret_real||null,fusionRet=false;
+    if(!hRR){var best=null;E.cargas.forEach(function(c){if(c.h_ret_real){var t=hm2min(c.h_ret_real);if(!best||t>best){best=t;hRR=c.h_ret_real;}}});if(hRR)fusionRet=true;}
+
+    // TEMPO vs 17:00
+    var hRRmin=hm2min(hRR);
+    var isOver=hRRmin!==null&&hRRmin>LIMITE;
+    var extraMin=isOver?hRRmin-LIMITE:0;
+
+    // Barra horário — de h_saida_plan até 17:00 como 100%
+    var hSPmin=hm2min(E.h_saida_plan)||420; // padrão 07:00
+    var totalJanela=LIMITE-hSPmin; // minutos de trabalho disponível
+    var trabMin=hRRmin?hRRmin-hSPmin:0;
+    var barW=totalJanela>0?Math.min(trabMin/totalJanela*100,130):0;
+    var barCol=isOver?'#FF8090':trabMin>totalJanela*0.9?'#FFD166':'#4DFFC3';
+
+    var cardCls='eq-card'+(isOk?' ok':'')+(isOver?' over':'')+(kmAlert&&!isOver?' alert-km':'');
+    html+='<div class="'+cardCls+'">';
+
+    // TOP
+    var horCls=hRRmin===null?'nd':isOver?'over':'ok';
+    html+='<div class="eq-top">'
+      +'<div><div class="eq-mot">'+mot+'</div><div class="eq-sub">VDA: '+E.vdas.join(', ')+'&nbsp;|&nbsp;'+(E.equipe||[]).join(' / ')+'</div></div>'
+      +'<div class="eq-horario"><div class="eq-hor-lbl">Retorno real vs 17:00</div>'
+      +'<div class="eq-hor-val '+horCls+'">'+(hRR||'---')+' '+(isOver?'(+'+min2hm(extraMin)+')':hRRmin!==null?'&#10003;':'')+'</div></div>'
+      +'</div>';
+
+    // BARRA HORÁRIO
+    var labelBarra=hRRmin?min2hm(trabMin)+(isOver?' extra: +'+min2hm(extraMin):''):'Aguardando';
+    html+='<div class="bar-hor-wrap">'
+      +'<div class="bar-hor-labels"><span>'+E.h_saida_plan+'</span><span style="color:'+(isOver?'var(--rd)':'var(--tx3)')+'">'+labelBarra+'</span><span style="color:rgba(255,128,144,.8)">17:00</span></div>'
+      +'<div class="bar-hor-track">'
+      +'<div class="bar-hor-fill" style="width:'+Math.min(barW,100)+'%;background:'+barCol+'">'+(barW>25?labelBarra:'')+'</div>'
+      +(isOver?'<div class="bar-hor-extra" style="left:100%;width:'+Math.min(extraMin/totalJanela*100,30)+'%"></div>':'')
+      +'<div class="bar-hor-limit" style="left:100%"></div>'
+      +'</div></div>';
+
+    // ALERTAS
+    if(isOver)html+='<div class="alert-row over">&#9888; Retornou '+hRR+' — '+min2hm(extraMin)+' apos 17:00 (horas extras)</div>';
+    else if(hRRmin!==null)html+='<div class="alert-row good">&#10003; Retornou '+hRR+' — dentro do horario</div>';
+    if(kmAlert)html+='<div class="alert-row km">&#9888; KM: plan '+fN(E.km_plan,1)+' vs real '+fN(kmReal,1)+' km ('+(kmDif>0?'+':'')+fN(kmDif,1)+' km)</div>';
+
+    // PLANEJADO
+    html+='<div class="plan-strip">'
+      +'<div class="psi"><div class="psl">Saida plan.</div><div class="psv">'+E.h_saida_plan+'</div></div>'
+      +'<div class="psi"><div class="psl">Limite</div><div class="psv">17:00</div></div>'
+      +'<div class="psi"><div class="psl">KM plan.</div><div class="psv">'+fN(E.km_plan,1)+' km</div></div>'
+      +'<div class="psi"><div class="psl">Peso plan.</div><div class="psv">'+fN(E.peso_plan)+' kg</div></div>'
+      +'</div>';
+
+    // LANÇAMENTO
+    html+='<div class="real-grid">'
+      +'<div class="rf"><div class="rl">Hodometro saida</div><input type="number" class="inp" placeholder="km inicial" value="'+(le.hod_ini||'')+'" oninput="setHod(''+mot+'','hod_ini',this.value)"></div>'
+      +'<div class="rf"><div class="rl">Hodometro retorno</div><input type="number" class="inp" placeholder="km final" value="'+(le.hod_ret||'')+'" oninput="setHod(''+mot+'','hod_ret',this.value)"></div>'
+      +'<div class="rf"><div class="rl">Retorno real '+(fusionRet?'<span class="ftag f">Fusion</span>':'')+'</div>'
+      +'<input type="time" class="inp'+(fusionRet?' f-ok':!hRR?' need':'')+'" value="'+(le.h_ret_real||hRR||'')+'" onchange="setRet(''+mot+'',this.value)"></div>'
+      +'</div>';
+
+    // KM calculado
+    if(kmReal!==null){
+      html+='<div style="margin-bottom:10px;display:flex;align-items:center;gap:8px;font-size:10px;font-family:var(--mo)">'
+        +'<span style="color:var(--tx3)">KM real calculado:</span>'
+        +'<span style="font-weight:700;color:'+(kmAlert?'var(--am)':'var(--gr)')+'">'+fN(kmReal,1)+' km</span>'
+        +(kmDif!==null?'<span style="color:'+(kmDif>5?'var(--rd)':kmDif<-5?'var(--am)':'var(--tx3)')+'">'+(kmDif>0?'+':'')+fN(kmDif,1)+' km</span>':'')
+        +'</div>';
+    }
+
+    // CARGAS
+    html+='<div class="cargas-sub"><div class="sub-lbl">Cargas da equipe</div>';
+    E.cargas.forEach(function(c){
+      var lc=LC[DIA][c.id]||{};
+      var tag=c.h_ret_real?'<span class="ftag f">F</span>':'<span class="ftag m">M</span>';
+      html+='<div class="carga-row">'
+        +'<div><span class="cr-rota">'+c.rota+'</span><span class="cr-id">'+c.id+'</span>'
+        +'<div class="cr-det">VDA '+c.vda+' &middot; '+c.h_saida_plan+'&#8594;'+(c.h_ret_plan||'---')+' &middot; '+fN(c.km_plan,1)+' km &middot; '+fN(c.peso_plan)+' kg '+tag+'</div></div>'
+        +'<div class="cr-right">'
+        +'<input type="number" class="inp-p" placeholder="'+fN(c.peso_plan)+'" value="'+(lc.peso_real||'')+'" oninput="setPeso(''+c.id+'',this.value)">'
+        +'<button class="bok '+(lc.ok?'done':'idle')+'" onclick="togCOk(''+c.id+'')">'+(lc.ok?'&#10003;':'OK')+'</button>'
+        +'</div></div>';
+    });
+    html+='</div>';
+
+    // FOOTER
+    html+='<div class="eq-footer"><button class="btn-eq-ok '+(isOk?'done':'idle')+'" onclick="togEqOk(''+mot+'')">'+(isOk?'&#10003; Equipe OK':'&#10003; Confirmar equipe')+'</button></div>';
+    html+='</div>';
+  });
+  el.innerHTML=html;
+}
+
+function setHod(mot,campo,v){if(!DIA)return;if(!LE[DIA][mot])LE[DIA][mot]={};LE[DIA][mot][campo]=v;renderKPIs();renderEquipes();}
+function setRet(mot,v){if(!DIA)return;if(!LE[DIA][mot])LE[DIA][mot]={};LE[DIA][mot].h_ret_real=v;renderKPIs();renderEquipes();}
+function setPeso(id,v){if(!DIA)return;if(!LC[DIA][id])LC[DIA][id]={};LC[DIA][id].peso_real=v;renderKPIs();}
+function togCOk(id){if(!DIA)return;if(!LC[DIA][id])LC[DIA][id]={};LC[DIA][id].ok=!LC[DIA][id].ok;renderEquipes();renderKPIs();}
+function togEqOk(mot){if(!DIA)return;if(!LE[DIA][mot])LE[DIA][mot]={};LE[DIA][mot].ok=!LE[DIA][mot].ok;renderEquipes();renderKPIs();}
+function encerrar(){if(!DIA)return;saveObs();var a=new Date();LD[DIA].locked=true;LD[DIA].lock_ts=a.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+' de '+a.toLocaleDateString('pt-BR');buildDiaNav();selDia(DIA);}
+function exportar(){var blob=new Blob([JSON.stringify({D:D,LE:LE,LC:LC,LD:LD,ts:new Date().toISOString()})],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='gelocrim_pvr_'+new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')+'.json';a.click();}
+
+function importFusion(file){
+  if(!file)return;var st=document.getElementById('st-f');st.textContent='Lendo...';
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:'binary',cellDates:true});
+      var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+      var novos=0;
+      rows.forEach(function(row,i){
+        if(i<2||!row[0]||!row[11])return;
+        var dt=null;
+        try{if(row[11] instanceof Date)dt=row[11];else{var s=String(row[11]).substring(0,10);if(s[2]==='/')dt=new Date(+s.substring(6),+s.substring(3,5)-1,+s.substring(0,2),+String(row[11]).substring(11,13),+String(row[11]).substring(14,16));else dt=new Date(s);}}catch(ex){}
+        if(!dt)return;
+        var pz=function(n){return String(n).padStart(2,'0');};
+        var dia=dt.getFullYear()+'-'+pz(dt.getMonth()+1)+'-'+pz(dt.getDate());
+        var mot=String(row[9]||'').trim().split(' ')[0];
+        var vda=String(row[10]||'').trim().replace(/\s/g,'');
+        var km=(parseFloat(String(row[7]).replace(/\./g,'').replace(',','.'))||0)/1000;
+        var peso=parseFloat(String(row[3]).replace(/\./g,'').replace(',','.'))||0;
+        var dtFim=null;try{if(row[13])dtFim=new Date(String(row[13]));}catch(ex){}
+        var dtSai=null;try{if(row[12])dtSai=new Date(String(row[12]));}catch(ex){}
+        var hSP=pz(dt.getHours())+':'+pz(dt.getMinutes());
+        var hRP=dtFim?pz(dtFim.getHours())+':'+pz(dtFim.getMinutes()):null;
+        var hSR=dtSai?pz(dtSai.getHours())+':'+pz(dtSai.getMinutes()):null;
+        var hRR=(dtSai&&dtFim&&dtFim>dtSai)?pz(dtFim.getHours())+':'+pz(dtFim.getMinutes()):null;
+        var equipe=[mot];
+        for(var ci=16;ci<=19;ci++){var v=String(row[ci]||'').trim();if(v&&v!=='None'&&equipe.indexOf(v.split(' ')[0])<0)equipe.push(v.split(' ')[0]);}
+        if(!D[dia])D[dia]={mes:dia.substring(0,7),n_equipes:0,km_plan:0,peso_plan_pv:0,peso_trocas:0,peso_bonif:0,peso_consig:0,peso_total:0,has_prog:false,equipes:{}};
+        if(!D[dia].equipes[mot])D[dia].equipes[mot]={cargas:[],vdas:[],equipe:equipe,km_plan:0,peso_plan:0,h_saida_plan:hSP};
+        var E=D[dia].equipes[mot];
+        E.km_plan=+(E.km_plan+km).toFixed(1);E.peso_plan=+(E.peso_plan+peso).toFixed(1);
+        if(hSP<E.h_saida_plan)E.h_saida_plan=hSP;
+        if(E.vdas.indexOf(vda)<0)E.vdas.push(vda);
+        D[dia].km_plan=+(D[dia].km_plan+km).toFixed(1);
+        E.cargas.push({id:String(row[0]).trim(),rota:String(row[6]||'').trim(),vda:vda,km_plan:+km.toFixed(1),peso_plan:+peso.toFixed(1),h_saida_plan:hSP,h_ret_plan:hRP,h_saida_real:hSR,h_ret_real:hRR});
+        novos++;
+      });
+      Object.keys(D).forEach(function(dia){D[dia].n_equipes=Object.keys(D[dia].equipes||{}).length;});
+      document.getElementById('dz-f').classList.add('ok');st.textContent=novos+' cargas importadas';
+      buildMesTabs();buildDiaNav();
+    }catch(err){st.textContent='Erro: '+err.message;console.error(err);}
+  };reader.readAsBinaryString(file);
+}
+
+function importEnc(file){
+  if(!file||!DIA)return;var st=document.getElementById('st-e');st.textContent='Lendo...';
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:'binary'});var pv=0,trocas=0,bonif=0,consig=0;
+      wb.SheetNames.forEach(function(aba){
+        var rows=XLSX.utils.sheet_to_json(wb.Sheets[aba],{header:1,defval:''});
+        rows.forEach(function(row){
+          var c9=String(row[9]||'').trim().toUpperCase();
+          var s=function(i){return parseInt(row[i])||0;};
+          var peso=s(10)*3+s(11)*6+s(12)*11+s(13)*23+s(14)*45+s(15)*55;
+          if(!peso)return;
+          if(c9.indexOf('PRE-VENDA')>=0||c9.indexOf('PRE-VENDA')>=0)pv+=peso;
+          else if(c9.indexOf('TROCA')>=0)trocas+=peso;
+          else if(c9.indexOf('BONIF')>=0)bonif+=peso;
+          else if(c9.indexOf('CONSIG')>=0)consig+=peso;
+        });
+      });
+      if(!D[DIA])D[DIA]={mes:DIA.substring(0,7),equipes:{}};
+      D[DIA].peso_plan_pv=pv;D[DIA].peso_trocas=trocas;D[DIA].peso_bonif=bonif;D[DIA].peso_consig=consig;D[DIA].peso_total=pv+trocas+bonif+consig;D[DIA].has_prog=true;
+      document.getElementById('dz-e').classList.add('ok');st.textContent='PV: '+pv.toLocaleString('pt-BR')+' kg';renderKPIs();
+    }catch(err){st.textContent='Erro: '+err.message;}
+  };reader.readAsBinaryString(file);
+}
+
+window.addEventListener('load',function(){
+  var meses=getMeses();MES=meses[meses.length-1];buildMesTabs();buildDiaNav();
+  var dias=Object.keys(D).filter(function(d){return d.startsWith(MES);}).sort();
+  if(dias.length)selDia(dias[dias.length-1]);
+});
+</script></body></html>
